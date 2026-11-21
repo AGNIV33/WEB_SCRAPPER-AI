@@ -3,6 +3,8 @@
 All dates 2026-11-21. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- **Match the website's theme** (Settings, on by default): the dashboard re-colours itself with the analysed site's accent colours (overrides Tailwind's indigo/violet CSS variables), uses the site's background tint, and follows its light/dark look until you press the theme button. Text stays readable.
+- Glass background is now ONE sharp landing-page screenshot (homepage top), blurred once on a canvas (default 6px), not live. Panels are more opaque so text is always readable. Header and sidebar no longer use backdrop blur outside glass mode (smoother scrolling).
 - Fix: JavaScript-only sites (e.g. rockstargames.com) were counted as 1 page. If plain HTML finds < 10 pages, discovery now opens up to 8 pages in headless Chrome and reads the rendered links (rockstargames.com: 1 -> 207+ pages).
 - **Count first, then choose**: the app counts the site's pages (links + sitemap, up to 500), then asks how many to analyse (max 50) with an estimated time. Progress bar shows page X of N, % and time left.
 - **Every page gets a screenshot**: screenshot is taken before data extraction, falls back to a viewport shot, is returned even if extraction fails, and failed pages are retried once automatically.

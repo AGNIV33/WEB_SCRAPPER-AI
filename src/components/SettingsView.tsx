@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings as SettingsIcon, Sun, Moon, Monitor, Sparkles, Image as ImageIcon, Wand2, Gauge, RotateCcw, Check } from "lucide-react";
+import { Settings as SettingsIcon, Palette, Sun, Moon, Monitor, Sparkles, Image as ImageIcon, Wand2, Gauge, RotateCcw, Check } from "lucide-react";
 import type { Settings } from "@/lib/settings";
 
 const card = "glass-panel rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
@@ -68,10 +68,13 @@ export default function SettingsView({ settings: s, update, reset, hasSite }: { 
       <section data-anim="card" className={`${card} ${s.glass ? "" : "opacity-60"}`}>
         <h3 className="mb-1 font-semibold">Glass background</h3>
         <p className={`mb-2 text-xs ${muted}`}>{s.glass ? "Shown behind the glass panels." : "Turn on Glass mode to use these."}</p>
-        <Row icon={ImageIcon} title="Use the analysed website as background" desc={`Shows the site's screenshot and colour palette behind the glass.${hasSite ? "" : " Analyse a site to see it."}`}>
+        <Row icon={ImageIcon} title="Use the analysed website as background" desc={`Shows the site's landing page (homepage screenshot) behind the glass.${hasSite ? "" : " Analyse a site to see it."}`}>
           <Toggle on={s.siteBackground} onChange={(v) => update({ siteBackground: v })} label="Site background" />
         </Row>
-        <Row icon={Wand2} title={`Background blur: ${s.bgBlur}px`} desc="Higher = softer, less detail.">
+        <Row icon={Palette} title="Match the website's theme" desc="Dashboard takes the site's colours and light/dark look. Text always stays readable.">
+          <Toggle on={s.siteTheme} onChange={(v) => update({ siteTheme: v })} label="Match site theme" />
+        </Row>
+        <Row icon={Wand2} title={`Background blur: ${s.bgBlur}px`} desc="0 = sharp screenshot. Higher = softer.">
           <input type="range" min={0} max={40} value={s.bgBlur} onChange={(e) => update({ bgBlur: +e.target.value })} className="w-40 accent-indigo-500" aria-label="Background blur" />
         </Row>
         <Row icon={Sparkles} title={`Background strength: ${s.bgStrength}%`} desc="How strongly the background shows through.">

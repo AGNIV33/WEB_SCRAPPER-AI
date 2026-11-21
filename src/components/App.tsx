@@ -7,7 +7,8 @@ import {
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
-import { readSettings, useSettings } from "@/lib/settings";
+import { applySettings, readSettings, useSettings } from "@/lib/settings";
+import { applySiteTheme, buildSiteTheme } from "@/lib/siteTheme";
 import { buildSummary, type LinksResult, type PageResult, type SiteResult, type Summary } from "@/lib/report";
 import Dashboard, { type AiResult, type View as DashView } from "@/components/Dashboard";
 import AuthModal from "@/components/AuthModal";
@@ -207,8 +208,19 @@ export default function App() {
 
   // Stable values so memoised children (Dashboard, SiteBackground) don't re-render on every keystroke
   const recrawl = useCallback(() => formRef.current?.requestSubmit(), []);
-  const bgShots = useMemo(() => (settings.siteBackground ? pages.filter((p) => p.screenshot).map((p) => p.screenshot!) : []), [pages, settings.siteBackground]);
-  const bgColors = useMemo(() => (settings.siteBackground && summary ? [...new Set([...summary.palette.accents, ...summary.palette.backgrounds.map((c) => c.value)])].slice(0, 4) : []), [summary, settings.siteBackground]);
+  // Glass background: ONE landing-page screenshot (the homepage), prepared once in good quality
+  const homeShot = useMemo(() => (settings.siteBackground ? pages.find((p) => p.screenshot)?.screenshot || null : null), [pages, settings.siteBackground]);
+  // Dashboard takes on the analysed site's colours (and light/dark) when enabled
+  const siteTheme = useMemo(() => (settings.siteTheme && summary ? buildSiteTheme(summary) : null), [summary, settings.siteTheme]);
+  // The site decides light/dark until the user presses the theme button themselves
+  const [manualTheme, setManualTheme] = useState(false);
+  const [themeFor, setThemeFor] = useState(summary);
+  if (themeFor !== summary) { setThemeFor(summary); setManualTheme(false); }
+  useEffect(() => {
+    applySiteTheme(siteTheme);
+    if (siteTheme && !manualTheme) document.documentElement.classList.toggle("dark", siteTheme.dark);
+    else applySettings(settings);
+  }, [siteTheme, settings, manualTheme]);
 
   const pct = phase === "discover" ? 5 : phase === "pages" ? 5 + (progress.done / Math.max(progress.total, 1)) * 75 : phase === "links" ? 85 : phase === "choose" ? 5 : 95;
   // Time left: measured average per page once pages finish, otherwise the rough estimate
@@ -219,10 +231,10 @@ export default function App() {
   return (
     <div className="waves relative min-h-screen text-slate-800 dark:text-slate-100">
       {settings.glass && (
-        <SiteBackground shots={bgShots} colors={bgColors} blur={settings.bgBlur} strength={settings.bgStrength} />
+        <SiteBackground shot={homeShot} blur={settings.bgBlur} strength={settings.bgStrength} />
       )}
       {/* Sidebar */}
-      <aside className={`glass-panel fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200/70 bg-white/80 px-4 py-6 backdrop-blur transition-transform dark:border-white/10 dark:bg-[#12121f]/90 lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`glass-panel fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200/70 bg-white px-4 py-6 transition-transform dark:border-white/10 dark:bg-[#12121f] lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="mb-8 flex items-center gap-3 px-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-mark.svg" alt="" className="h-10 w-10" />
@@ -246,7 +258,7 @@ export default function App() {
 
       <div className="relative z-10 lg:pl-64">
         {/* Top bar */}
-        <header className="glass-panel sticky top-0 z-20 border-b border-slate-200/60 bg-white/70 backdrop-blur dark:border-white/10 dark:bg-[#0d0d17]/70">
+        <header className="glass-panel sticky top-0 z-20 border-b border-slate-200/60 bg-white/95 dark:border-white/10 dark:bg-[#0d0d17]/95">
           <form ref={formRef} onSubmit={run} className="flex flex-wrap items-center gap-3 px-4 py-3 md:px-8">
             <button type="button" className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={22} /></button>
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm focus-within:border-indigo-400 dark:border-white/10 dark:bg-white/5">
@@ -264,7 +276,7 @@ export default function App() {
               className={`grid h-10 w-10 place-items-center rounded-xl border ${settings.glass ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-200" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"}`}>
               <Droplets size={18} />
             </button>
-            <button type="button" onClick={() => updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" })} aria-label="Toggle light/dark theme" className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+            <button type="button" onClick={() => { setManualTheme(true); updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }); }} aria-label="Toggle light/dark theme" className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
               <Moon size={18} className="dark:hidden" /><Sun size={18} className="hidden dark:block" />
             </button>
             <button type="button" aria-label="Notifications" className="hidden h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 sm:grid dark:border-white/10 dark:bg-white/5 dark:text-slate-300"><Bell size={18} /></button>

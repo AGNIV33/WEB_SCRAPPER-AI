@@ -14,40 +14,46 @@ body {
   font-family: var(--font-inter), system-ui, sans-serif;
 }
 
+/* App background. --app-bg / --app-glow-* are set from the analysed site's colours (src/lib/siteTheme.ts). */
 .waves {
   background:
-    radial-gradient(1200px 400px at 85% -10%, rgba(139, 92, 246, 0.16), transparent 60%),
-    radial-gradient(900px 380px at 10% 110%, rgba(99, 102, 241, 0.12), transparent 60%),
-    #f7f6fd;
+    radial-gradient(1200px 400px at 85% -10%, color-mix(in srgb, var(--app-glow-2, #8b5cf6) 16%, transparent), transparent 60%),
+    radial-gradient(900px 380px at 10% 110%, color-mix(in srgb, var(--app-glow-1, #6366f1) 12%, transparent), transparent 60%),
+    var(--app-bg, #f7f6fd);
 }
 .dark .waves {
   background:
-    radial-gradient(1200px 400px at 85% -10%, rgba(139, 92, 246, 0.18), transparent 60%),
-    radial-gradient(900px 380px at 10% 110%, rgba(99, 102, 241, 0.12), transparent 60%),
-    #0d0d17;
+    radial-gradient(1200px 400px at 85% -10%, color-mix(in srgb, var(--app-glow-2, #8b5cf6) 18%, transparent), transparent 60%),
+    radial-gradient(900px 380px at 10% 110%, color-mix(in srgb, var(--app-glow-1, #6366f1) 12%, transparent), transparent 60%),
+    var(--app-bg, #0d0d17);
 }
 
 /* ---------- Glass mode (glassmorphism) ---------- */
-.glass .waves { background: linear-gradient(135deg, #eef0ff, #f6efff); }
-.dark.glass .waves { background: #0a0a16; }
+.glass .waves { background: var(--app-bg, #eef0ff); }
+.dark.glass .waves { background: var(--app-bg, #0a0a16); }
 
+/* Panels are mostly opaque so every text stays readable over the site screenshot.
+   A small blur keeps the glass look while staying cheap to draw. */
 .glass [data-anim="card"],
 .glass .glass-panel {
-  background: rgba(255, 255, 255, 0.2) !important;
-  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.08)) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-  backdrop-filter: blur(14px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.6) !important;
-  box-shadow: 0 10px 36px -8px rgba(49, 46, 129, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0)) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
 }
 .dark.glass [data-anim="card"],
 .dark.glass .glass-panel {
-  background: rgba(20, 20, 40, 0.32) !important;
-  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  box-shadow: 0 10px 36px -8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  background: rgba(12, 12, 24, 0.7) !important;
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 /* inner light boxes become frosted too */
-.glass [data-anim="card"] .bg-slate-50 { background: rgba(255, 255, 255, 0.35) !important; }
+.glass [data-anim="card"] .bg-slate-50 { background: rgba(255, 255, 255, 0.5) !important; }
 .dark.glass [data-anim="card"] .bg-slate-50,
-.dark.glass [data-anim="card"] [class*="bg-black/30"] { background: rgba(0, 0, 0, 0.25) !important; }
+.dark.glass [data-anim="card"] [class*="bg-black/30"] { background: rgba(0, 0, 0, 0.3) !important; }
+/* nested panels (e.g. a card inside a card) don't need their own blur */
+.glass [data-anim="card"] [data-anim="card"],
+.glass .glass-panel .glass-panel { -webkit-backdrop-filter: none; backdrop-filter: none; }

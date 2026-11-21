@@ -2,61 +2,52 @@
 
 import { memo, useEffect, useState } from "react";
 
-/** Shrinks a big screenshot to a tiny image. Scaled back up by CSS it looks blurred, for almost no GPU cost
- *  (a live CSS `filter: blur()` on full-size screenshots behind many glass panels was the main source of lag). */
-function tinyThumb(src: string, width = 48): Promise<string> {
+/**
+ * Prepares ONE good-quality background from the homepage screenshot: the top (landing) part only,
+ * blurred once on a canvas. The result is a static image, so scrolling costs nothing
+ * (a live CSS blur over the page was a main cause of lag).
+ */
+function prepare(src: string, blur: number): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      const h = Math.max(1, Math.round((img.height / img.width) * width));
+      const w = img.width, h = Math.min(img.height, Math.round(w * 0.7)); // landing area (above the fold)
       const c = document.createElement("canvas");
-      c.width = width; c.height = Math.min(h, width * 2);
-      c.getContext("2d")!.drawImage(img, 0, 0, img.width, Math.min(img.height, img.width * 2), 0, 0, c.width, c.height);
-      resolve(c.toDataURL("image/jpeg", 0.7));
+      c.width = w; c.height = h;
+      const ctx = c.getContext("2d")!;
+      if (blur > 0) {
+        ctx.filter = `blur(${blur}px)`;
+        // draw slightly larger so blurred edges don't fade to transparent
+        ctx.drawImage(img, 0, 0, w, h, -blur * 2, -blur * 2, w + blur * 4, h + blur * 4);
+      } else ctx.drawImage(img, 0, 0, w, h, 0, 0, w, h);
+      resolve(c.toDataURL("image/jpeg", 0.88));
     };
     img.onerror = () => resolve("");
     img.src = src;
   });
 }
 
-/**
- * Glass mode background: the analysed site's own look (screenshots + palette) behind frosted panels.
- * Without a site, shows a default gradient mesh.
- */
-function SiteBackground({ shots, colors, blur, strength }: { shots: string[]; colors: string[]; blur: number; strength: number }) {
-  const [thumbs, setThumbs] = useState<string[]>([]);
-  const key = shots.slice(0, 6).map((s) => s.length).join(",") + "|" + blur;
+function SiteBackground({ shot, blur, strength }: { shot: string | null; blur: number; strength: number }) {
+  const [bg, setBg] = useState<{ src: string; for: string } | null>(null);
+  const id = shot ? `${shot.length}:${blur}` : "";
 
   useEffect(() => {
+    if (!shot) return;
     let live = true;
-    // more blur = smaller thumbnail
-    const w = Math.max(16, Math.round(96 - blur * 2));
-    Promise.all(shots.slice(0, 6).map((s) => tinyThumb(s, w))).then((t) => { if (live) setThumbs(t.filter(Boolean)); });
+    prepare(shot, blur).then((src) => { if (live) setBg({ src, for: id }); });
     return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [shot, blur, id]);
 
-  const c = colors.length ? colors : ["#8b5cf6", "#6366f1", "#38bdf8", "#f472b6"];
-  const mesh = [
-    `radial-gradient(40% 50% at 12% 18%, ${c[0]}cc, transparent 70%)`,
-    `radial-gradient(45% 55% at 88% 22%, ${c[1 % c.length]}cc, transparent 70%)`,
-    `radial-gradient(50% 50% at 75% 88%, ${c[2 % c.length]}cc, transparent 70%)`,
-    `radial-gradient(45% 45% at 18% 85%, ${c[3 % c.length]}cc, transparent 70%)`,
-  ].join(", ");
   const o = strength / 100;
-  const shown = shots.length ? thumbs : [];
+  const ready = shot && bg && bg.for === id && bg.src;
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-0 overflow-hidden" style={{ contain: "strict" }}>
-      <div className="absolute inset-0" style={{ background: mesh, opacity: o }} />
-      {shown.length > 0 && (
-        <div className="absolute inset-[-40px] grid grid-cols-2 gap-6 p-6 md:grid-cols-3" style={{ opacity: o * 0.85 }}>
-          {shown.map((src, i) => (
-            <div key={i} className="h-full max-h-[70vh] w-full rounded-3xl bg-cover bg-top"
-              style={{ backgroundImage: `url(${src})`, transform: `rotate(${(i % 2 ? 1 : -1) * (2 + i)}deg) translateY(${(i % 3) * 30}px)` }} />
-          ))}
-        </div>
+      {/* colour glow from the site's accents (always) */}
+      <div className="absolute inset-0" style={{ background: "radial-gradient(45% 50% at 12% 15%, var(--app-glow-1, #8b5cf6), transparent 70%), radial-gradient(45% 55% at 88% 85%, var(--app-glow-2, #38bdf8), transparent 70%)", opacity: o * 0.55 }} />
+      {ready && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={bg.src} alt="" className="absolute inset-0 h-full w-full object-cover object-top" style={{ opacity: o }} />
       )}
-      <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(rgba(255,255,255,.35)_1px,transparent_1px)] [background-size:22px_22px]" />
     </div>
   );
 }

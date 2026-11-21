@@ -5,14 +5,15 @@ import { useEffect, useState } from "react";
 export type Settings = {
   theme: "light" | "dark" | "system";
   glass: boolean;          // glassmorphism UI
-  siteBackground: boolean; // in glass mode, use the analysed site's screenshot + colours as background
+  siteBackground: boolean; // in glass mode, use the analysed site's homepage screenshot as background
+  siteTheme: boolean;      // re-colour the dashboard with the analysed site's colours
   bgBlur: number;          // px, 0–40
   bgStrength: number;      // %, 10–100 (how visible the site background is)
   motion: boolean;         // GSAP animations
   defaultPages: number;    // default crawl limit
 };
 
-export const DEFAULTS: Settings = { theme: "light", glass: false, siteBackground: true, bgBlur: 18, bgStrength: 70, motion: true, defaultPages: 6 };
+export const DEFAULTS: Settings = { theme: "light", glass: false, siteBackground: true, siteTheme: true, bgBlur: 6, bgStrength: 70, motion: true, defaultPages: 6 };
 const KEY = "settings";
 
 export function readSettings(): Settings {

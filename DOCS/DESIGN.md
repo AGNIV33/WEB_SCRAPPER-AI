@@ -51,6 +51,9 @@
 - Panels (`[data-anim=card]`, `.glass-panel`): white 20% (dark: navy 32%) + diagonal sheen, `backdrop-filter: blur(22px) saturate(170%)`, 1px light border, inner highlight.
 - Background (`SiteBackground.tsx`): analysed site's screenshots (tilted, blurred) + 4 radial blobs from its palette + dot texture. Blur and strength set in Settings.
 
+## Site theme
+- `src/lib/siteTheme.ts` builds 50–950 colour scales from the site's main accent (and a second hue) and sets them as `--color-indigo-*` / `--color-violet-*` on `<html>`, plus `--app-bg` and `--app-glow-*`. Shades 500/600 stay dark enough for white text.
+
 ## Themes
 - Light is default. Options: Light / Dark / System (Settings). Saved in `localStorage.settings`; applied before first paint by the script in `layout.tsx`.
 - Toggled by adding `.dark` on `<html>` (Tailwind `@custom-variant dark`).
