@@ -16,7 +16,7 @@ export type DesignRaw = {
 };
 export type PageResult = {
   url: string; finalUrl?: string; status?: number | null; loadMs?: number; error?: string;
-  screenshot?: string; mobileScreenshot?: string | null;
+  screenshot?: string; mobileScreenshot?: string | null; faviconData?: string | null;
   colors?: { background: Entry[]; text: Entry[]; border: Entry[] };
   cssVars?: Record<string, string>;
   design?: DesignRaw;

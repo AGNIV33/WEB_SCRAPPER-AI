@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useRef, useState } from "react";
@@ -154,7 +154,7 @@ export default function Dashboard({ view, setView, pages, site, summary: s, ai, 
   const header = (
     <div className="mb-6 flex flex-wrap items-center gap-4">
       <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5">
-        {home?.seo?.favicon ? <img src={home.seo.favicon} alt="" className="h-7 w-7" /> : <Globe size={22} className="text-indigo-500" />}
+        <Favicon key={home?.url} srcs={[home?.faviconData, home?.seo?.favicon].filter(Boolean) as string[]} />
       </div>
       <div className="min-w-0">
         <a href={home?.finalUrl || pages[0]?.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xl font-bold hover:text-indigo-600">
@@ -417,6 +417,13 @@ export default function Dashboard({ view, setView, pages, site, summary: s, ai, 
       )}
     </div>
   );
+}
+
+/** Site icon: tries each source, falls back to a globe if none loads. */
+function Favicon({ srcs }: { srcs: string[] }) {
+  const [i, setI] = useState(0);
+  if (i >= srcs.length) return <Globe size={22} className="text-indigo-500" />;
+  return <img src={srcs[i]} alt="" className="h-7 w-7 object-contain" onError={() => setI((x) => x + 1)} />;
 }
 
 /** Number that GSAP counts up from 0. */

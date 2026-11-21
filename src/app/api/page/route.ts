@@ -1,7 +1,7 @@
 import type { Page, HTTPRequest } from "puppeteer-core";
 import { launchBrowser } from "@/lib/browser";
 import { EXTRACT_SCRIPT } from "@/lib/extractScript";
-import { assertPublicHost, normalizeUrl } from "@/lib/url";
+import { assertPublicHost, normalizeUrl, safeFetch } from "@/lib/url";
 import { checkLibrary } from "@/lib/vulnDb";
 
 export const maxDuration = 60;
@@ -68,6 +68,24 @@ export async function POST(req: Request) {
     }
 
     const cookies = await page.cookies().catch(() => []);
+
+    // Fetch the favicon on the server and embed it, so it shows even when the site blocks hotlinking.
+    let faviconData: string | null = null;
+    if (mobile) {
+      const seo = (data as { seo?: { favicon?: string | null } }).seo;
+      for (const src of [seo?.favicon, new URL("/favicon.ico", page.url()).toString()].filter(Boolean) as string[]) {
+        try {
+          if (src.startsWith("data:")) { faviconData = src; break; }
+          const { res } = await safeFetch(src, { timeoutMs: 6000 });
+          const type = res.headers.get("content-type") || "";
+          const buf = Buffer.from(await res.arrayBuffer());
+          if (res.ok && buf.length > 0 && buf.length < 200_000 && /image|icon|octet/.test(type)) {
+            faviconData = `data:${type.split(";")[0] || "image/x-icon"};base64,${buf.toString("base64")}`;
+            break;
+          }
+        } catch { /* try next */ }
+      }
+    }
     const finalUrl = page.url();
     const isHttps = finalUrl.startsWith("https://");
     const headers = resp ? resp.headers() : {};
@@ -91,6 +109,7 @@ export async function POST(req: Request) {
       headers,
       screenshot: "data:image/jpeg;base64," + shot,
       mobileScreenshot: mobileShot ? "data:image/jpeg;base64," + mobileShot : null,
+      faviconData,
       ...data,
       requestsByType: requests.reduce<Record<string, number>>((a, r) => ((a[r.type] = (a[r.type] || 0) + 1), a), {}),
       failedRequests: failed,
