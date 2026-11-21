@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Bell, Moon, Sun, Menu, Bot,
+  Link2, X, Bell, Moon, Sun, Menu,
 } from "lucide-react";
 import { buildSummary, type LinksResult, type PageResult, type SiteResult, type Summary } from "@/lib/report";
 import Dashboard, { type AiResult, type View } from "@/components/Dashboard";
@@ -123,8 +123,9 @@ export default function App() {
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200/70 bg-white/80 px-4 py-6 backdrop-blur transition-transform dark:border-white/10 dark:bg-[#12121f]/90 lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="mb-8 flex items-center gap-3 px-2">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30"><Bot size={20} /></div>
-          <div><div className="font-semibold leading-tight">Scrapper AI</div><div className="text-xs text-slate-500 dark:text-slate-400">Website Analyzer</div></div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-mark.svg" alt="" className="h-10 w-10" />
+          <div><div className="text-lg font-bold leading-tight tracking-tight"><span className="text-[#1e1b4b] dark:text-white">Scrapper</span> <span className="text-violet-500">AI</span></div><div className="text-xs text-slate-500 dark:text-slate-400">Website Analyzer</div></div>
           <button className="ml-auto lg:hidden" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={18} /></button>
         </div>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
