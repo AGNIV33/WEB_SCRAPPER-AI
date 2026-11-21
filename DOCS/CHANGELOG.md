@@ -3,6 +3,9 @@
 All dates 2026-11-21. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- **Settings page**: Light / Dark / System theme, Glass mode, glass background options (site background on/off, blur, strength), default pages, animations on/off. Saved in `localStorage.settings`.
+- **Glass mode** (glassmorphism): frosted panels; background shows the analysed site's screenshots + colour palette (falls back to a gradient mesh).
+- Stat tiles: score rings, per-page bar chart, load-time sparkline, progress bars, glow + hover. [2155600]
 - **Switched login + history from Supabase to Firebase** (Firebase Auth email/password + Firestore at `users/{uid}/analyses`, rules in `firestore.rules`). Supabase code and migration removed.
 - Login with email + password (Supabase) and per-user **History**: auto-save, reopen, search, delete. Private by RLS. Needs a Supabase project to switch on. [a17766e]
 - Site favicon now fetched on the server and embedded, with a globe fallback (fixes broken icon on samsung.com). [3bbaca9]

@@ -46,6 +46,11 @@
 - Numbers: count up from 0 over 1.3 s.
 - All motion is off when the user prefers reduced motion (`gsap.matchMedia`).
 
+## Glass mode
+- Toggle in the top bar (droplet icon) or Settings. Adds `.glass` on `<html>`.
+- Panels (`[data-anim=card]`, `.glass-panel`): white 20% (dark: navy 32%) + diagonal sheen, `backdrop-filter: blur(22px) saturate(170%)`, 1px light border, inner highlight.
+- Background (`SiteBackground.tsx`): analysed site's screenshots (tilted, blurred) + 4 radial blobs from its palette + dot texture. Blur and strength set in Settings.
+
 ## Themes
-- Light is default; dark follows system on first visit, then the saved choice (`localStorage.theme`).
+- Light is default. Options: Light / Dark / System (Settings). Saved in `localStorage.settings`; applied before first paint by the script in `layout.tsx`.
 - Toggled by adding `.dark` on `<html>` (Tailwind `@custom-variant dark`).

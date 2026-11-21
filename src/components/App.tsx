@@ -3,8 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check,
+  Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets,
 } from "lucide-react";
+import SettingsView from "@/components/SettingsView";
+import SiteBackground from "@/components/SiteBackground";
+import { readSettings, useSettings } from "@/lib/settings";
 import { buildSummary, type LinksResult, type PageResult, type SiteResult, type Summary } from "@/lib/report";
 import Dashboard, { type AiResult, type View as DashView } from "@/components/Dashboard";
 import AuthModal from "@/components/AuthModal";
@@ -12,7 +15,7 @@ import HistoryView from "@/components/HistoryView";
 import { authEnabled, logout as fbLogout, onUser, type User } from "@/lib/firebase";
 import { loadAnalysis, saveAnalysis } from "@/lib/history";
 
-type View = DashView | "history";
+type View = DashView | "history" | "settings";
 
 type Phase = "idle" | "discover" | "pages" | "links" | "ai" | "done";
 
@@ -35,16 +38,13 @@ const NAV: { id: View; label: string; icon: React.ElementType }[] = [
   { id: "design", label: "Design.md", icon: FileCode },
   { id: "tech", label: "Tech Stack", icon: Layers },
   ...(authEnabled ? [{ id: "history" as View, label: "History", icon: History }] : []),
+  { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
-function toggleTheme() {
-  const dark = document.documentElement.classList.toggle("dark");
-  try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch { /* ignore */ }
-}
-
 export default function App() {
+  const { settings, update: updateSettings, reset: resetSettings } = useSettings();
   const [url, setUrl] = useState("");
-  const [limit, setLimit] = useState(6);
+  const [limit, setLimit] = useState(() => readSettings().defaultPages);
   const [phase, setPhase] = useState<Phase>("idle");
   const [log, setLog] = useState<string[]>([]);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -160,9 +160,15 @@ export default function App() {
   const pct = phase === "discover" ? 5 : phase === "pages" ? 5 + (progress.done / Math.max(progress.total, 1)) * 75 : phase === "links" ? 85 : 95;
 
   return (
-    <div className="waves min-h-screen text-slate-800 dark:text-slate-100">
+    <div className="waves relative min-h-screen text-slate-800 dark:text-slate-100">
+      {settings.glass && (
+        <SiteBackground
+          shots={settings.siteBackground ? pages.filter((p) => p.screenshot).map((p) => p.screenshot!) : []}
+          colors={settings.siteBackground && summary ? [...new Set([...summary.palette.accents, ...summary.palette.backgrounds.map((c) => c.value)])].slice(0, 4) : []}
+          blur={settings.bgBlur} strength={settings.bgStrength} />
+      )}
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200/70 bg-white/80 px-4 py-6 backdrop-blur transition-transform dark:border-white/10 dark:bg-[#12121f]/90 lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`glass-panel fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200/70 bg-white/80 px-4 py-6 backdrop-blur transition-transform dark:border-white/10 dark:bg-[#12121f]/90 lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="mb-8 flex items-center gap-3 px-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-mark.svg" alt="" className="h-10 w-10" />
@@ -184,9 +190,9 @@ export default function App() {
       </aside>
       {menuOpen && <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setMenuOpen(false)} />}
 
-      <div className="lg:pl-64">
+      <div className="relative z-10 lg:pl-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-20 border-b border-slate-200/60 bg-white/70 backdrop-blur dark:border-white/10 dark:bg-[#0d0d17]/70">
+        <header className="glass-panel sticky top-0 z-20 border-b border-slate-200/60 bg-white/70 backdrop-blur dark:border-white/10 dark:bg-[#0d0d17]/70">
           <form ref={formRef} onSubmit={run} className="flex flex-wrap items-center gap-3 px-4 py-3 md:px-8">
             <button type="button" className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={22} /></button>
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm focus-within:border-indigo-400 dark:border-white/10 dark:bg-white/5">
@@ -204,7 +210,11 @@ export default function App() {
             ) : (
               <button className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 hover:opacity-95"><Sparkles size={16} /> Analyze</button>
             )}
-            <button type="button" onClick={toggleTheme} aria-label="Toggle light/dark theme" className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+            <button type="button" onClick={() => updateSettings({ glass: !settings.glass })} aria-label="Toggle glass mode" title="Glass mode"
+              className={`grid h-10 w-10 place-items-center rounded-xl border ${settings.glass ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-200" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"}`}>
+              <Droplets size={18} />
+            </button>
+            <button type="button" onClick={() => updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" })} aria-label="Toggle light/dark theme" className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
               <Moon size={18} className="dark:hidden" /><Sun size={18} className="hidden dark:block" />
             </button>
             <button type="button" aria-label="Notifications" className="hidden h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 sm:grid dark:border-white/10 dark:bg-white/5 dark:text-slate-300"><Bell size={18} /></button>
@@ -213,7 +223,7 @@ export default function App() {
                 <button type="button" onClick={() => setUserMenu((o) => !o)} aria-label="Account menu"
                   className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-sm font-semibold uppercase text-white">{(user.email || "?")[0]}</button>
                 {userMenu && (
-                  <div className="absolute right-0 top-12 z-50 w-60 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl dark:border-white/10 dark:bg-[#16162a]">
+                  <div className="glass-panel absolute right-0 top-12 z-50 w-60 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl dark:border-white/10 dark:bg-[#16162a]">
                     <div className="truncate px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{user.email}</div>
                     <button type="button" onClick={() => { setView("history"); setUserMenu(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-white/5"><History size={16} /> My history</button>
                     <button type="button" onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"><LogOut size={16} /> Log out</button>
@@ -237,7 +247,7 @@ export default function App() {
 
         <main className="px-4 py-6 md:px-8">
           {error && <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">{error}</p>}
-          {authEnabled && summary && view !== "history" && (
+          {authEnabled && summary && view !== "history" && view !== "settings" && (
             <div className="mb-4 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               {!user ? <><CloudUpload size={14} /> <button onClick={() => setAuthOpen(true)} className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400">Log in</button> to save analyses to your history.</>
                 : saveState === "saving" ? <><CloudUpload size={14} className="animate-pulse" /> Saving to history…</>
@@ -245,7 +255,9 @@ export default function App() {
                 : null}
             </div>
           )}
-          {view === "history"
+          {view === "settings"
+            ? <SettingsView settings={settings} update={updateSettings} reset={resetSettings} hasSite={pages.some((p) => p.screenshot)} />
+            : view === "history"
             ? <HistoryView loggedIn={!!user} onLogin={() => setAuthOpen(true)} onOpen={openFromHistory} refreshKey={historyKey} />
             : <Dashboard view={view} setView={(v) => setView(v)} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} onRecrawl={() => formRef.current?.requestSubmit()} />}
         </main>

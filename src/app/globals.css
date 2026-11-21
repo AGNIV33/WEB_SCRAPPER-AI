@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -26,3 +26,28 @@ body {
     radial-gradient(900px 380px at 10% 110%, rgba(99, 102, 241, 0.12), transparent 60%),
     #0d0d17;
 }
+
+/* ---------- Glass mode (glassmorphism) ---------- */
+.glass .waves { background: linear-gradient(135deg, #eef0ff, #f6efff); }
+.dark.glass .waves { background: #0a0a16; }
+
+.glass [data-anim="card"],
+.glass .glass-panel {
+  background: rgba(255, 255, 255, 0.2) !important;
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.08)) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 10px 36px -8px rgba(49, 46, 129, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+}
+.dark.glass [data-anim="card"],
+.dark.glass .glass-panel {
+  background: rgba(20, 20, 40, 0.32) !important;
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 10px 36px -8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+/* inner light boxes become frosted too */
+.glass [data-anim="card"] .bg-slate-50 { background: rgba(255, 255, 255, 0.35) !important; }
+.dark.glass [data-anim="card"] .bg-slate-50,
+.dark.glass [data-anim="card"] [class*="bg-black/30"] { background: rgba(0, 0, 0, 0.25) !important; }

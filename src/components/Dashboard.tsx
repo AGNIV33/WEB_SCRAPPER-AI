@@ -39,7 +39,7 @@ function NoShots({ compact }: { compact?: boolean }) {
 }
 
 /* ---------- small UI pieces ---------- */
-const card = "rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a] dark:shadow-none";
+const card = "glass-panel rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a] dark:shadow-none";
 const muted = "text-slate-500 dark:text-slate-400";
 
 function Card({ title, icon: Icon, right, children, className = "", onMore }: { title?: string; icon?: React.ElementType; right?: React.ReactNode; children: React.ReactNode; className?: string; onMore?: () => void }) {
@@ -203,6 +203,7 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
   useGoogleFonts(s?.typography.families.map((f) => f.value) || []);
   const root = useRef<HTMLDivElement>(null);
   useGSAP(() => {
+    if (document.documentElement.classList.contains("no-motion")) return; // turned off in Settings
     const mm = gsap.matchMedia();
     mm.add("(prefers-reduced-motion: no-preference)", () => {
       const q = gsap.utils.selector(root);

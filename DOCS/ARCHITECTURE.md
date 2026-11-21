@@ -46,6 +46,8 @@ src/
     Dashboard.tsx       all dashboard views + GSAP animations
     AuthModal.tsx       login / sign-up
     HistoryView.tsx     saved analyses
+    SettingsView.tsx    theme, glass mode, background, defaults
+    SiteBackground.tsx  glass-mode background from the analysed site
   lib/
     browser.ts          launches Chrome (local) or sparticuz chromium (Vercel)
     url.ts              normalizeUrl, SSRF guard (assertPublicHost), safeFetch
