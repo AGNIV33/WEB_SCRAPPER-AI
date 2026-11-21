@@ -3,9 +3,19 @@ import { buildDesignMd, ruleSuggestions, type Summary } from "@/lib/report";
 export const maxDuration = 60;
 
 const BASE = process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1";
-const MODEL = process.env.NVIDIA_MODEL || "meta/llama-3.3-70b-instruct";
+const MODEL = process.env.NVIDIA_MODEL || "nvidia/nemotron-3.5-super-vl-120b-a12b";
+const FALLBACK = process.env.NVIDIA_FALLBACK_MODEL || "nvidia/nemotron-3.5-lightning-30b-a3b";
 
 async function chat(messages: { role: string; content: string }[], maxTokens: number) {
+  try {
+    return await chatWith(MODEL, messages, maxTokens);
+  } catch (e) {
+    if (!FALLBACK || FALLBACK === MODEL) throw e;
+    return chatWith(FALLBACK, messages, maxTokens);
+  }
+}
+
+async function chatWith(model: string, messages: { role: string; content: string }[], maxTokens: number) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 50000);
   try {
@@ -13,11 +23,12 @@ async function chat(messages: { role: string; content: string }[], maxTokens: nu
       method: "POST",
       signal: ctrl.signal,
       headers: { "content-type": "application/json", authorization: `Bearer ${process.env.NVIDIA_API_KEY}` },
-      body: JSON.stringify({ model: MODEL, messages, temperature: 0.3, max_tokens: maxTokens }),
+      body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: maxTokens }),
     });
     if (!r.ok) throw new Error(`NVIDIA API ${r.status}: ${(await r.text()).slice(0, 200)}`);
     const j = await r.json();
-    return (j.choices?.[0]?.message?.content as string) || "";
+    // Reasoning models may include a <think>…</think> block; drop it.
+    return ((j.choices?.[0]?.message?.content as string) || "").replace(/<think>[\s\S]*?<\/think>/g, "").trim();
   } finally {
     clearTimeout(t);
   }
