@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
   Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets,
@@ -157,15 +157,17 @@ export default function App() {
     }
   }
 
+  // Stable values so memoised children (Dashboard, SiteBackground) don't re-render on every keystroke
+  const recrawl = useCallback(() => formRef.current?.requestSubmit(), []);
+  const bgShots = useMemo(() => (settings.siteBackground ? pages.filter((p) => p.screenshot).map((p) => p.screenshot!) : []), [pages, settings.siteBackground]);
+  const bgColors = useMemo(() => (settings.siteBackground && summary ? [...new Set([...summary.palette.accents, ...summary.palette.backgrounds.map((c) => c.value)])].slice(0, 4) : []), [summary, settings.siteBackground]);
+
   const pct = phase === "discover" ? 5 : phase === "pages" ? 5 + (progress.done / Math.max(progress.total, 1)) * 75 : phase === "links" ? 85 : 95;
 
   return (
     <div className="waves relative min-h-screen text-slate-800 dark:text-slate-100">
       {settings.glass && (
-        <SiteBackground
-          shots={settings.siteBackground ? pages.filter((p) => p.screenshot).map((p) => p.screenshot!) : []}
-          colors={settings.siteBackground && summary ? [...new Set([...summary.palette.accents, ...summary.palette.backgrounds.map((c) => c.value)])].slice(0, 4) : []}
-          blur={settings.bgBlur} strength={settings.bgStrength} />
+        <SiteBackground shots={bgShots} colors={bgColors} blur={settings.bgBlur} strength={settings.bgStrength} />
       )}
       {/* Sidebar */}
       <aside className={`glass-panel fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200/70 bg-white/80 px-4 py-6 backdrop-blur transition-transform dark:border-white/10 dark:bg-[#12121f]/90 lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
@@ -259,7 +261,7 @@ export default function App() {
             ? <SettingsView settings={settings} update={updateSettings} reset={resetSettings} hasSite={pages.some((p) => p.screenshot)} />
             : view === "history"
             ? <HistoryView loggedIn={!!user} onLogin={() => setAuthOpen(true)} onOpen={openFromHistory} refreshKey={historyKey} />
-            : <Dashboard view={view} setView={(v) => setView(v)} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} onRecrawl={() => formRef.current?.requestSubmit()} />}
+            : <Dashboard view={view} setView={setView} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} onRecrawl={recrawl} />}
         </main>
       </div>
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}

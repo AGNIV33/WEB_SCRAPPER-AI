@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, memo, useContext, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import {
@@ -196,9 +196,11 @@ const pathOf = (u: string) => { try { const x = new URL(u); return x.pathname + 
 const hostOf = (u?: string) => { try { return new URL(u!).hostname; } catch { return u || ""; } };
 
 /* ---------- main ---------- */
-export default function Dashboard(props: Props) {
+/** Memoised: typing in the URL box or other app-level state changes no longer re-render the whole dashboard. */
+const Dashboard = memo(function Dashboard(props: Props) {
   return <RecrawlCtx.Provider value={props.onRecrawl}><DashboardInner {...props} /></RecrawlCtx.Provider>;
-}
+});
+export default Dashboard;
 
 function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta }: Props) {
   useGoogleFonts(s?.typography.families.map((f) => f.value) || []);
@@ -316,7 +318,7 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
               {!okPages.some((p) => p.screenshot) ? <NoShots compact /> : <div className="grid grid-cols-2 gap-3">
                 {okPages.slice(0, 4).map((p) => (
                   <button key={p.url} onClick={() => setView("screenshots")} className="min-w-0 text-left">
-                    <img src={p.screenshot} alt="" className="aspect-[4/3] w-full rounded-lg border border-slate-200 object-cover object-top dark:border-white/10" />
+                    <img loading="lazy" decoding="async" src={p.screenshot} alt="" className="aspect-[4/3] w-full rounded-lg border border-slate-200 object-cover object-top dark:border-white/10" />
                     <div className={`mt-1 truncate text-xs ${muted}`}>{pathOf(p.url) === "/" ? "Home" : pathOf(p.url)}</div>
                   </button>
                 ))}
@@ -401,15 +403,15 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
           {home?.mobileScreenshot && (
             <Card title="Homepage: desktop vs mobile" icon={ImageIcon}>
               <div className="grid gap-4 md:grid-cols-[1fr_240px]">
-                <img src={home.screenshot} alt="desktop" className="max-h-[600px] w-full rounded-xl border border-slate-200 object-cover object-top dark:border-white/10" />
-                <img src={home.mobileScreenshot} alt="mobile" className="w-full rounded-xl border border-slate-200 dark:border-white/10" />
+                <img loading="lazy" decoding="async" src={home.screenshot} alt="desktop" className="max-h-[600px] w-full rounded-xl border border-slate-200 object-cover object-top dark:border-white/10" />
+                <img loading="lazy" decoding="async" src={home.mobileScreenshot} alt="mobile" className="w-full rounded-xl border border-slate-200 dark:border-white/10" />
               </div>
             </Card>
           )}
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {okPages.filter((p) => p.screenshot).map((p) => (
               <a key={p.url} href={p.screenshot} download={`${hostOf(p.url)}${pathOf(p.url).replace(/\W+/g, "-")}.jpg`} className={`${card} block overflow-hidden`} title="Download screenshot">
-                <img src={p.screenshot} alt="" className="aspect-[4/3] w-full object-cover object-top" />
+                <img loading="lazy" decoding="async" src={p.screenshot} alt="" className="aspect-[4/3] w-full object-cover object-top" />
                 <div className="p-3"><div className="truncate text-sm font-medium">{p.seo?.title || pathOf(p.url)}</div><div className={`truncate text-xs ${muted}`}>{pathOf(p.url)}</div></div>
               </a>
             ))}
@@ -577,7 +579,7 @@ function PageDetail({ p }: { p: PageResult }) {
   return (
     <Card title={seo.title || pathOf(p.url)} icon={FileText} right={<a href={p.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:underline">Open <ExternalLink size={12} /></a>}>
       <div className="grid gap-5 lg:grid-cols-2">
-        {p.screenshot ? <img src={p.screenshot} alt="page screenshot" className="max-h-[640px] w-full rounded-xl border border-slate-200 object-cover object-top dark:border-white/10" /> : <NoShots compact />}
+        {p.screenshot ? <img loading="lazy" decoding="async" src={p.screenshot} alt="page screenshot" className="max-h-[640px] w-full rounded-xl border border-slate-200 object-cover object-top dark:border-white/10" /> : <NoShots compact />}
         <div className="space-y-3">
           {row("Description", seo.description)}
           {row("H1", seo.h1.join(" | "))}
