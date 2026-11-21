@@ -18,12 +18,34 @@ export const EXTRACT_SCRIPT = String.raw`
 
   const bg = {}, text = {}, border = {}, fonts = {}, sizes = {}, weights = {};
   const cssAnimated = []; let transitionEls = 0; const transitionProps = {};
+  const spacing = {}, radius = {}, shadows = {}, gradients = {}, lineHeights = {}, letterSp = {}, maxWidths = {}, durations = {}, easings = {}, zIndex = {};
+  let flexCount = 0, gridCount = 0;
+  const cards = [];
   const els = Array.from(document.querySelectorAll('body, body *')).slice(0, 5000);
   for (const el of els) {
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden') continue;
     const r = el.getBoundingClientRect();
     const area = r.width * r.height;
+    if (area > 0) {
+      for (const p of ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'marginTop', 'marginBottom', 'rowGap', 'columnGap']) {
+        const v = parseFloat(cs[p]);
+        if (v > 0 && v < 400) add(spacing, Math.round(v) + 'px', 1);
+      }
+      if (cs.borderTopLeftRadius && cs.borderTopLeftRadius !== '0px') add(radius, cs.borderTopLeftRadius, 1);
+      if (cs.boxShadow && cs.boxShadow !== 'none') add(shadows, cs.boxShadow, 1);
+      if (cs.backgroundImage && cs.backgroundImage.includes('gradient')) add(gradients, cs.backgroundImage.slice(0, 220), area);
+      if (cs.display.includes('flex')) flexCount++;
+      if (cs.display.includes('grid')) gridCount++;
+      if (cs.maxWidth && cs.maxWidth !== 'none' && r.width > 500) add(maxWidths, cs.maxWidth, 1);
+      if (cs.zIndex && cs.zIndex !== 'auto') add(zIndex, cs.zIndex, 1);
+      const tds = cs.transitionDuration.split(',').concat(cs.animationDuration.split(',')).map((x) => x.trim()).filter((x) => parseFloat(x) > 0);
+      tds.forEach((d) => add(durations, d, 1));
+      if (tds.length) cs.transitionTimingFunction.split(/,(?![^(]*\))/).forEach((e) => add(easings, e.trim(), 1));
+      if (cards.length < 40 && r.width > 160 && r.height > 100 && r.width < innerWidth * 0.9 && cs.borderTopLeftRadius !== '0px' && (cs.boxShadow !== 'none' || parseFloat(cs.borderTopWidth) > 0) && toHex(cs.backgroundColor)) {
+        cards.push({ bg: toHex(cs.backgroundColor), radius: cs.borderTopLeftRadius, shadow: cs.boxShadow !== 'none' ? cs.boxShadow.slice(0, 120) : null, border: parseFloat(cs.borderTopWidth) > 0 ? cs.borderTopWidth + ' ' + cs.borderTopStyle + ' ' + toHex(cs.borderTopColor) : null, padding: cs.padding });
+      }
+    }
     if (area > 0) add(bg, toHex(cs.backgroundColor), area);
     if (parseFloat(cs.borderTopWidth) > 0) add(border, toHex(cs.borderTopColor), r.width);
     let direct = '';
@@ -34,6 +56,8 @@ export const EXTRACT_SCRIPT = String.raw`
       add(fonts, cs.fontFamily.split(',')[0].replace(/["']/g, '').trim(), len);
       add(sizes, cs.fontSize, len);
       add(weights, cs.fontWeight, len);
+      add(lineHeights, cs.lineHeight === 'normal' ? 'normal' : (parseFloat(cs.lineHeight) / parseFloat(cs.fontSize)).toFixed(2) + ' (' + cs.lineHeight + ')', len);
+      if (cs.letterSpacing !== 'normal') add(letterSp, cs.letterSpacing, len);
     }
     if (cs.animationName && cs.animationName !== 'none' && cssAnimated.length < 60) {
       cssAnimated.push({ el: selOf(el), name: cs.animationName, duration: cs.animationDuration, timing: cs.animationTimingFunction, iteration: cs.animationIterationCount });
@@ -44,10 +68,33 @@ export const EXTRACT_SCRIPT = String.raw`
     }
   }
 
-  // Stylesheets: keyframes, CSS variables, @font-face
+  // Element-level style samples (headings, body, buttons, links, inputs, nav, footer)
+  const textStyle = (el) => { const c = getComputedStyle(el); return { font: c.fontFamily.split(',')[0].replace(/["']/g, '').trim(), size: c.fontSize, weight: c.fontWeight, lineHeight: c.lineHeight, letterSpacing: c.letterSpacing, color: toHex(c.color), transform: c.textTransform !== 'none' ? c.textTransform : null }; };
+  const visible = (el) => { const r = el.getBoundingClientRect(); const c = getComputedStyle(el); return r.width > 0 && r.height > 0 && c.display !== 'none' && c.visibility !== 'hidden'; };
+  const firstVis = (sel) => Array.from(document.querySelectorAll(sel)).find(visible);
+  const textStyles = {};
+  for (const tag of ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'a', 'li', 'small', 'label', 'blockquote', 'code']) { const e = firstVis(tag); if (e) textStyles[tag] = textStyle(e); }
+  const btnSeen = new Set(); const buttons = [];
+  for (const b of Array.from(document.querySelectorAll('button, [role=button], a[class*="btn"], a[class*="button"], a[class*="Button"], input[type=submit]')).filter(visible)) {
+    const c = getComputedStyle(b);
+    const s = { text: (b.innerText || b.value || '').trim().slice(0, 30), bg: toHex(c.backgroundColor), bgImage: c.backgroundImage !== 'none' ? c.backgroundImage.slice(0, 160) : null, color: toHex(c.color), border: parseFloat(c.borderTopWidth) > 0 ? c.borderTopWidth + ' ' + c.borderTopStyle + ' ' + toHex(c.borderTopColor) : 'none', radius: c.borderTopLeftRadius, padding: c.padding, fontSize: c.fontSize, fontWeight: c.fontWeight, shadow: c.boxShadow !== 'none' ? c.boxShadow.slice(0, 120) : null, transition: c.transitionDuration !== '0s' ? c.transitionProperty + ' ' + c.transitionDuration : null, height: Math.round(b.getBoundingClientRect().height) + 'px' };
+    const k = [s.bg, s.color, s.border, s.radius, s.fontSize].join('|');
+    if (!btnSeen.has(k) && s.text) { btnSeen.add(k); buttons.push(s); }
+    if (buttons.length >= 8) break;
+  }
+  const inputEl = firstVis('input[type=text], input[type=email], input[type=search], input:not([type]), textarea, select');
+  const input = inputEl ? (() => { const c = getComputedStyle(inputEl); return { bg: toHex(c.backgroundColor), color: toHex(c.color), border: c.borderTopWidth + ' ' + c.borderTopStyle + ' ' + toHex(c.borderTopColor), radius: c.borderTopLeftRadius, padding: c.padding, fontSize: c.fontSize, height: Math.round(inputEl.getBoundingClientRect().height) + 'px' }; })() : null;
+  const block = (sel) => { const e = firstVis(sel); if (!e) return null; const c = getComputedStyle(e); const r = e.getBoundingClientRect(); return { bg: toHex(c.backgroundColor), height: Math.round(r.height) + 'px', position: c.position, shadow: c.boxShadow !== 'none' ? c.boxShadow.slice(0, 100) : null, borderBottom: parseFloat(c.borderBottomWidth) > 0 ? c.borderBottomWidth + ' ' + toHex(c.borderBottomColor) : null, backdrop: c.backdropFilter && c.backdropFilter !== 'none' ? c.backdropFilter : null, links: e.querySelectorAll('a').length }; };
+  const linkEl = firstVis('main a, p a, article a') || firstVis('a');
+  const linkStyle = linkEl ? (() => { const c = getComputedStyle(linkEl); return { color: toHex(c.color), decoration: c.textDecorationLine, weight: c.fontWeight }; })() : null;
+  const icons = { svg: document.querySelectorAll('svg').length, iconFont: !!document.querySelector('[class*="fa-"], .material-icons, [class*="icon-"], .bi'), imgs: document.images.length };
+  const mediaQ = new Set();
+
+  // Stylesheets: keyframes, CSS variables, @font-face, media queries
   const keyframes = new Set(); const cssVars = {}; const fontFaces = new Set(); let blockedSheets = 0;
   const walk = (rules) => {
     for (const rule of rules) {
+      if (rule.type === 4 && rule.conditionText) (rule.conditionText.match(/(min|max)-width:\s*[\d.]+(px|em|rem)/g) || []).forEach((m) => mediaQ.add(m.replace(/\s+/g, ' ')));
       if (rule.type === 7 && rule.name) keyframes.add(rule.name);
       else if (rule.type === 5) fontFaces.add((rule.style.getPropertyValue('font-family') || '').replace(/["']/g, '').trim());
       else if (rule.type === 1 && /(^|,)\s*(:root|html)\s*(,|$)/.test(rule.selectorText || '')) {
@@ -161,6 +208,16 @@ export const EXTRACT_SCRIPT = String.raw`
   return {
     colors: { background: top(bg, 12), text: top(text, 10), border: top(border, 6) },
     cssVars,
+    design: {
+      spacing: top(spacing, 16), radius: top(radius, 10), shadows: top(shadows, 8), gradients: top(gradients, 6),
+      lineHeights: top(lineHeights, 6), letterSpacing: top(letterSp, 6), maxWidths: top(maxWidths, 6),
+      durations: top(durations, 8), easings: top(easings, 6), zIndex: top(zIndex, 8),
+      layout: { flex: flexCount, grid: gridCount, pageWidth: document.documentElement.scrollWidth, pageHeight: document.documentElement.scrollHeight },
+      breakpoints: [...mediaQ].slice(0, 30),
+      textStyles, buttons, input, link: linkStyle, cards: cards.slice(0, 40),
+      header: block('header, [role=banner], nav'), footer: block('footer, [role=contentinfo]'),
+      icons,
+    },
     typography: { families: top(fonts, 8), sizes: top(sizes, 12), weights: top(weights, 6), loadedFonts: [...new Set(loadedFonts)].slice(0, 30), fontFaces: [...fontFaces].filter(Boolean).slice(0, 30) },
     animations: { keyframes: [...keyframes].slice(0, 60), cssAnimated, transitionEls, transitionProps: top(transitionProps, 10), running: anims, libraries: animLibs, blockedSheets },
     tech, srcVersions,

@@ -106,7 +106,7 @@ export default function App() {
       setSummary(s);
 
       setPhase("ai"); say("Writing suggestions and design.md…");
-      const aiRes = await post<AiResult>("/api/ai", { summary: s, textSample: results[0]?.textSample }).catch((e) => ({ ai: false, error: e.message, suggestions: [], designMd: "" }) as AiResult);
+      const aiRes = await post<AiResult>("/api/ai", { summary: s, textSample: results[0]?.textSample, screenshot: results.find((r) => r.screenshot)?.screenshot }).catch((e) => ({ ai: false, error: e.message, suggestions: [], designMd: "" }) as AiResult);
       setAi(aiRes);
       setMeta({ startedAt: t0, seconds: (Date.now() - t0.getTime()) / 1000 });
       setPhase("done"); say("Done.");

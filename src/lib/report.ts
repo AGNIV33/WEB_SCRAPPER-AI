@@ -1,11 +1,25 @@
 /* Shared types + helpers that turn raw page results into one site summary. Pure TS (runs on client and server). */
 
 export type Entry = [string, number];
+type TextStyle = { font: string; size: string; weight: string; lineHeight: string; letterSpacing: string; color: string | null; transform: string | null };
+type ButtonStyle = { text: string; bg: string | null; bgImage: string | null; color: string | null; border: string; radius: string; padding: string; fontSize: string; fontWeight: string; shadow: string | null; transition: string | null; height: string };
+type BlockStyle = { bg: string | null; height: string; position: string; shadow: string | null; borderBottom: string | null; backdrop: string | null; links: number } | null;
+export type DesignRaw = {
+  spacing: Entry[]; radius: Entry[]; shadows: Entry[]; gradients: Entry[]; lineHeights: Entry[]; letterSpacing: Entry[]; maxWidths: Entry[];
+  durations: Entry[]; easings: Entry[]; zIndex: Entry[];
+  layout: { flex: number; grid: number; pageWidth: number; pageHeight: number };
+  breakpoints: string[]; textStyles: Record<string, TextStyle>; buttons: ButtonStyle[];
+  input: { bg: string | null; color: string | null; border: string; radius: string; padding: string; fontSize: string; height: string } | null;
+  link: { color: string | null; decoration: string; weight: string } | null;
+  cards: { bg: string | null; radius: string; shadow: string | null; border: string | null; padding: string }[];
+  header: BlockStyle; footer: BlockStyle; icons: { svg: number; iconFont: boolean; imgs: number };
+};
 export type PageResult = {
   url: string; finalUrl?: string; status?: number | null; loadMs?: number; error?: string;
   screenshot?: string; mobileScreenshot?: string | null;
   colors?: { background: Entry[]; text: Entry[]; border: Entry[] };
   cssVars?: Record<string, string>;
+  design?: DesignRaw;
   typography?: { families: Entry[]; sizes: Entry[]; weights: Entry[]; loadedFonts: string[]; fontFaces: string[] };
   animations?: {
     keyframes: string[]; cssAnimated: { el: string; name: string; duration: string; timing: string; iteration: string }[];
@@ -141,9 +155,38 @@ export function buildSummary(pages: PageResult[], site: SiteResult | null, links
   const perfPages = ok.map((p) => ({ url: p.url, loadMs: p.loadMs || 0, ...p.perf! }));
   const avgLoad = perfPages.length ? Math.round(perfPages.reduce((s, p) => s + (p.load || p.loadMs), 0) / perfPages.length) : 0;
 
+  // Design tokens merged across pages
+  const ds = ok.map((p) => p.design).filter(Boolean) as DesignRaw[];
+  const h = ds[0];
+  const px = (v: string) => parseFloat(v) || 0;
+  const spacing = merge(ds.map((d) => d.spacing), false, 16).sort((a, b) => px(a[0]) - px(b[0]));
+  const spacingVals = spacing.map(([v]) => px(v));
+  const on8 = spacingVals.filter((v) => v % 8 === 0).length, on4 = spacingVals.filter((v) => v % 4 === 0).length;
+  const cardMap = new Map<string, DesignRaw["cards"][number] & { count: number }>();
+  ds.flatMap((d) => d.cards).forEach((c) => { const k = [c.bg, c.radius, c.shadow, c.border].join("|"); const e = cardMap.get(k); if (e) e.count++; else cardMap.set(k, { ...c, count: 1 }); });
+  const btnMap = new Map<string, DesignRaw["buttons"][number]>();
+  ds.flatMap((d) => d.buttons).forEach((b) => { const k = [b.bg, b.bgImage, b.color, b.border, b.radius].join("|"); if (!btnMap.has(k)) btnMap.set(k, b); });
+  const bpNum = (b: string) => parseFloat(b.split(":")[1]) * (/em/.test(b) ? 16 : 1);
+  const design = h ? {
+    spacing: pct(spacing), spacingBase: on8 >= spacingVals.length * 0.6 ? 8 : on4 >= spacingVals.length * 0.6 ? 4 : null,
+    radius: pct(merge(ds.map((d) => d.radius), false, 8)).sort((a, b) => px(a.value) - px(b.value)),
+    shadows: pct(merge(ds.map((d) => d.shadows), false, 6)),
+    gradients: merge(ds.map((d) => d.gradients), false, 5).map(([v]) => v),
+    lineHeights: pct(merge(ds.map((d) => d.lineHeights), false, 5)),
+    letterSpacing: pct(merge(ds.map((d) => d.letterSpacing), false, 5)),
+    maxWidths: pct(merge(ds.map((d) => d.maxWidths), false, 5)),
+    durations: pct(merge(ds.map((d) => d.durations), false, 6)),
+    easings: pct(merge(ds.map((d) => d.easings), false, 5)),
+    zIndex: merge(ds.map((d) => d.zIndex), false, 8).map(([v]) => v).sort((a, b) => +a - +b),
+    breakpoints: [...new Set(ds.flatMap((d) => d.breakpoints))].sort((a, b) => bpNum(a) - bpNum(b)).slice(0, 16),
+    textStyles: h.textStyles, buttons: [...btnMap.values()].slice(0, 6), input: ds.find((d) => d.input)?.input || null,
+    link: h.link, cards: [...cardMap.values()].sort((a, b) => b.count - a.count).slice(0, 4),
+    header: h.header, footer: h.footer, layout: h.layout, icons: h.icons,
+  } : null;
+
   return {
     url: pages[0]?.url, pagesAnalyzed: ok.length, pagesFailed: pages.length - ok.length,
-    palette, typography, animations, tech, hosting: site?.hosting || [],
+    palette, typography, animations, tech, hosting: site?.hosting || [], design,
     seoScore: seoPages.length ? Math.round(seoPages.reduce((t, p) => t + Math.max(0, 100 - p.issues.length * 8), 0) / seoPages.length) - (site?.hasSitemap === false ? 5 : 0) : 0,
     seo: { pages: seoPages, hasSitemap: site?.hasSitemap ?? false, hasRobots: !!site?.robots },
     security: { ...sec, score },
@@ -177,31 +220,4 @@ export function ruleSuggestions(s: Summary) {
   return out;
 }
 
-/** design.md built straight from the data (always available, no AI needed). */
-export function buildDesignMd(s: Summary) {
-  const L: string[] = [];
-  const host = s.url ? new URL(s.url).hostname : "site";
-  L.push(`# Design System: ${host}`, "", `> Auto-extracted from ${s.pagesAnalyzed} page(s) of ${s.url}`, "");
-  L.push("## Colors", "", "| Role | Hex | Usage |", "|---|---|---|");
-  s.palette.backgrounds.slice(0, 6).forEach((c, i) => L.push(`| ${i === 0 ? "Background (primary)" : "Background / surface"} | \`${c.value}\` | ${c.share}% of area |`));
-  s.palette.text.slice(0, 4).forEach((c, i) => L.push(`| ${i === 0 ? "Text (primary)" : "Text"} | \`${c.value}\` | ${c.share}% of text |`));
-  s.palette.accents.forEach((c) => L.push(`| Accent | \`${c}\` | brand / interactive |`));
-  s.palette.borders.slice(0, 3).forEach((c) => L.push(`| Border | \`${c.value}\` | ${c.share}% of borders |`));
-  const vars = Object.entries(s.palette.cssVars);
-  if (vars.length) { L.push("", "### CSS variables (from :root)", "", "```css", ":root {", ...vars.slice(0, 30).map(([k, v]) => `  ${k}: ${v};`), "}", "```"); }
-  L.push("", "## Typography", "");
-  s.typography.families.forEach((f, i) => L.push(`- **${i === 0 ? "Primary" : i === 1 ? "Secondary" : "Other"}:** ${f.value} (${f.share}% of text)`));
-  L.push("", "| Size | Share |", "|---|---|", ...s.typography.sizes.map((x) => `| ${x.value} | ${x.share}% |`));
-  L.push("", `**Weights:** ${s.typography.weights.map((w) => `${w.value} (${w.share}%)`).join(", ")}`);
-  if (s.typography.loadedFonts.length) L.push("", `**Loaded font files:** ${s.typography.loadedFonts.join(", ")}`);
-  L.push("", "## Motion & Animation", "");
-  L.push(`- Libraries: ${s.animations.libraries.length ? s.animations.libraries.map((l) => l.name + (l.version ? ` ${l.version}` : "")).join(", ") : "none detected (CSS only)"}`);
-  L.push(`- CSS @keyframes: ${s.animations.keyframes.length ? s.animations.keyframes.slice(0, 20).map((k) => `\`${k}\``).join(", ") : "none found"}`);
-  L.push(`- Elements with transitions: ${s.animations.transitionElements} (properties: ${s.animations.transitionProps.join(", ") || "n/a"})`);
-  if (s.animations.animatedElements.length) {
-    L.push("", "| Element | Animation | Duration | Easing |", "|---|---|---|---|");
-    s.animations.animatedElements.slice(0, 12).forEach((a) => L.push(`| \`${a.el}\` | ${a.name} | ${a.duration} | ${a.timing} |`));
-  }
-  L.push("", "## Tech Stack", "", ...s.tech.map((t) => `- ${t.name}${t.version ? ` ${t.version}` : ""}`), ...s.hosting.map((h) => `- ${h}`));
-  return L.join("\n");
-}
+export { buildDesignMd } from "./designMd";
