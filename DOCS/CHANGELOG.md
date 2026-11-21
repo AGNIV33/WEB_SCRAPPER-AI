@@ -3,6 +3,7 @@
 All dates 2026-11-21. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- Fix: JavaScript-only sites (e.g. rockstargames.com) were counted as 1 page. If plain HTML finds < 10 pages, discovery now opens up to 8 pages in headless Chrome and reads the rendered links (rockstargames.com: 1 -> 207+ pages).
 - **Count first, then choose**: the app counts the site's pages (links + sitemap, up to 500), then asks how many to analyse (max 50) with an estimated time. Progress bar shows page X of N, % and time left.
 - **Every page gets a screenshot**: screenshot is taken before data extraction, falls back to a viewport shot, is returned even if extraction fails, and failed pages are retried once automatically.
 - **Export menu**: PDF (detailed: cover, scores, suggestions, palette swatches, typography, design tokens, buttons, every page with details + full-page screenshots + mobile view, animations, security, SEO, broken links, tech, design.md appendix, page numbers), Excel (9 sheets, colour swatch cells), Markdown report, standalone HTML with screenshots, design.md, CSV, JSON, screenshots ZIP. All generated in the browser (`src/lib/exporters.ts`).

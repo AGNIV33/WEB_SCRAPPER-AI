@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
-import { cleanPageUrl, normalizeUrl, safeFetch, sameSite } from "@/lib/url";
+import { launchBrowser } from "@/lib/browser";
+import { assertPublicHost, cleanPageUrl, normalizeUrl, safeFetch, sameSite } from "@/lib/url";
 
 export const maxDuration = 60;
 
@@ -43,6 +44,36 @@ async function sitemapUrls(origin: string, cap: number): Promise<{ urls: string[
   } catch { /* ignore */ }
   for (const c of [...new Set(candidates)]) { if (out.length) break; await tryOne(c); }
   return { urls: out, truncated };
+}
+
+/** Breadth-first link discovery with a real browser (for sites rendered by JavaScript). */
+async function renderedLinks(root: URL, found: Map<string, string>, deadline: number) {
+  const browser = await launchBrowser();
+  try {
+    const page = await browser.newPage();
+    await page.setRequestInterception(true);
+    page.on("request", (r) => (["image", "media", "font"].includes(r.resourceType()) ? r.abort() : r.continue()));
+    const queue = [...found.values()];
+    const visited = new Set<string>();
+    while (queue.length && found.size < COUNT_CAP && Date.now() < deadline && visited.size < 8) {
+      const u = queue.shift()!;
+      if (visited.has(key(u))) continue;
+      visited.add(key(u));
+      try {
+        await assertPublicHost(new URL(u));
+        await page.goto(u, { waitUntil: "networkidle2", timeout: Math.max(5000, Math.min(20000, deadline - Date.now())) }).catch(() => null);
+        const hrefs = (await page.evaluate(`Array.from(document.querySelectorAll('a[href]')).map(a => a.href)`)) as string[];
+        for (const h of hrefs) {
+          const c = cleanPageUrl(h, u);
+          if (!c || !sameSite(new URL(c), root)) continue;
+          const k = key(c);
+          if (!found.has(k) && found.size < COUNT_CAP) { found.set(k, c); queue.push(c); }
+        }
+      } catch { /* skip page */ }
+    }
+  } finally {
+    await browser.close().catch(() => {});
+  }
 }
 
 /**
@@ -94,14 +125,25 @@ export async function POST(req: Request) {
       const c = cleanPageUrl(s, root.toString());
       if (c && sameSite(new URL(c), root) && !found.has(key(c))) found.set(key(c), c);
     }
+    // JavaScript-only sites (e.g. rockstargames.com) send an empty HTML shell with no links and no sitemap.
+    // Then we open the pages in headless Chrome and read the links after the page has rendered.
+    let rendered = false;
+    if (found.size < 10) {
+      rendered = true;
+      const before = found.size;
+      await renderedLinks(root, found, Date.now() + 40000).catch(() => {});
+      if (found.size === before) rendered = false;
+    }
+
     const total = Math.max(found.size, sm.urls.length);
     return Response.json({
       root: root.toString(),
       pages: [...found.values()],
       total,
-      atLeast: crawlStopped || sm.truncated || found.size >= COUNT_CAP, // site may have even more pages
+      atLeast: crawlStopped || sm.truncated || found.size >= COUNT_CAP || rendered, // site may have even more pages
       sitemapCount: sm.urls.length,
       maxAnalyze: MAX_ANALYZE,
+      rendered, // true when links came from headless Chrome (JavaScript-only site)
       seconds: Math.round((Date.now() - started) / 100) / 10,
     });
   } catch (e) {
