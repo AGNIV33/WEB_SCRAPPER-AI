@@ -26,6 +26,8 @@ npm run dev
 
 4. Open http://localhost:3000
 
+`npm run dev` is development mode and is 3–5x slower. To use the app at full speed locally, run `npm run fast` (builds, then starts the production server on http://localhost:3000).
+
 Without a key the app still works and uses rule-based suggestions.
 
 ## Login and history (optional)
