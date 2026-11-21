@@ -11,13 +11,22 @@ import { readSettings, useSettings } from "@/lib/settings";
 import { buildSummary, type LinksResult, type PageResult, type SiteResult, type Summary } from "@/lib/report";
 import Dashboard, { type AiResult, type View as DashView } from "@/components/Dashboard";
 import AuthModal from "@/components/AuthModal";
+import ChoosePages from "@/components/ChoosePages";
 import HistoryView from "@/components/HistoryView";
 import { authEnabled, logout as fbLogout, onUser, type User } from "@/lib/firebase";
 import { loadAnalysis, saveAnalysis } from "@/lib/history";
 
 type View = DashView | "history" | "settings";
 
-type Phase = "idle" | "discover" | "pages" | "links" | "ai" | "done";
+type Phase = "idle" | "discover" | "choose" | "pages" | "links" | "ai" | "done";
+type Discovery = { root: string; pages: string[]; total: number; atLeast: boolean; sitemapCount: number; maxAnalyze: number };
+
+/** Pages scanned at the same time. Each one runs headless Chrome. */
+const CONCURRENCY = 2;
+/** Rough timing used for estimates before real measurements exist. */
+const SEC_PER_PAGE = 12, TAIL_SEC = 35; // tail = link check + AI
+export const estimateSeconds = (n: number) => Math.ceil(n / CONCURRENCY) * SEC_PER_PAGE + TAIL_SEC;
+export const fmtDuration = (s: number) => { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60); return m ? `${m} min ${s % 60 ? `${s % 60} s` : ""}`.trim() : `${s} s`; };
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -47,7 +56,9 @@ export default function App() {
   const [limit, setLimit] = useState(() => readSettings().defaultPages);
   const [phase, setPhase] = useState<Phase>("idle");
   const [log, setLog] = useState<string[]>([]);
-  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [progress, setProgress] = useState<{ done: number; total: number; started?: number }>({ done: 0, total: 0 });
+  const [chooser, setChooser] = useState<{ disc: Discovery; resolve: (n: number | null) => void } | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [pages, setPages] = useState<PageResult[]>([]);
   const [site, setSite] = useState<SiteResult | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -93,40 +104,70 @@ export default function App() {
     const t0 = new Date();
     setError(null); setPages([]); setSite(null); setSummary(null); setAi(null); setLog([]); setMeta(null); setView("overview"); setSaveState("idle");
     try {
-      setPhase("discover"); say("Finding pages…");
-      const disc = await post<{ root: string; pages: string[] }>("/api/discover", { url, limit });
-      say(`Found ${disc.pages.length} page(s).`);
+      // 1) Count the site's pages first
+      setPhase("discover"); say("Counting the pages on this site…");
+      const disc = await post<Discovery>("/api/discover", { url });
+      say(`Found ${disc.total}${disc.atLeast ? "+" : ""} page(s).`);
+
+      // 2) Ask how many to analyse (with max and time estimate)
+      setPhase("choose");
+      const chosen = await new Promise<number | null>((resolve) => setChooser({ disc, resolve }));
+      setChooser(null);
+      if (!chosen) { setPhase("idle"); setLog([]); return; }
+      setLimit(chosen);
+      const limitN = chosen;
       const sitePromise = post<SiteResult>("/api/site", { url: disc.root }).catch((e) => ({ error: e.message }) as SiteResult);
 
+      // 3) Scan pages (2 at a time), with live time-left estimate
       setPhase("pages");
-      const queue = [...disc.pages];
-      const seen = new Set(queue.map((u) => u.replace(/\/$/, "")));
+      const queue = disc.pages.slice(0, limitN);
+      const seen = new Set(disc.pages.map((u) => u.replace(/\/$/, "")));
       const results: PageResult[] = [];
-      setProgress({ done: 0, total: queue.length });
+      const scanStart = Date.now();
+      setProgress({ done: 0, total: queue.length, started: scanStart });
       const rootHost = new URL(disc.root).hostname.replace(/^www\./, "");
+      const order = (a: PageResult, b: PageResult) => queue.indexOf(a.url) - queue.indexOf(b.url);
+      const scanOne = (u: string) => post<PageResult>("/api/page", { url: u, mobile: u === disc.root }).catch((e): PageResult => ({ url: u, error: e.message }));
       let idx = 0;
       const worker = async () => {
         while (idx < queue.length && !stopRef.current) {
           const u = queue[idx++];
           say(`Scanning ${u}`);
-          const r = await post<PageResult>("/api/page", { url: u, mobile: u === disc.root }).catch((e): PageResult => ({ url: u, error: e.message }));
+          const r = await scanOne(u);
           results.push(r);
-          // JS-rendered sites: add links found by the real browser, up to the limit
+          // JS-rendered sites: if we found fewer pages than asked, add links the real browser found
           for (const l of r.links || []) {
             try {
               const x = new URL(l.href); x.hash = "";
               const k = x.toString().replace(/\/$/, "");
-              if (queue.length < limit && x.hostname.replace(/^www\./, "") === rootHost && !seen.has(k) && !/\.(pdf|jpe?g|png|zip|svg|webp)$/i.test(x.pathname)) {
+              if (queue.length < limitN && x.hostname.replace(/^www\./, "") === rootHost && !seen.has(k) && !/\.(pdf|jpe?g|png|zip|svg|webp)$/i.test(x.pathname)) {
                 seen.add(k); queue.push(x.toString());
               }
             } catch { /* skip */ }
           }
-          setProgress({ done: results.length, total: queue.length });
-          setPages([...results].sort((a, b) => queue.indexOf(a.url) - queue.indexOf(b.url)));
+          setProgress({ done: results.length, total: queue.length, started: scanStart });
+          setPages([...results].sort(order));
         }
       };
-      await Promise.all([worker(), worker()]);
-      results.sort((a, b) => queue.indexOf(a.url) - queue.indexOf(b.url));
+      await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+      // 4) Retry pages that failed or have no screenshot (once, with a short pause)
+      const retry = results.filter((r) => r.error || !r.screenshot);
+      if (retry.length && !stopRef.current) {
+        say(`Retrying ${retry.length} page(s) that failed…`);
+        await new Promise((r) => setTimeout(r, 1500));
+        let j = 0;
+        const rworker = async () => {
+          while (j < retry.length && !stopRef.current) {
+            const old = retry[j++];
+            const r = await scanOne(old.url);
+            if (!r.error || (r.screenshot && !old.screenshot)) results[results.indexOf(old)] = r;
+            setPages([...results].sort(order));
+          }
+        };
+        await Promise.all([rworker(), rworker()]);
+      }
+      results.sort(order);
 
       const siteRes = await sitePromise;
       setSite(siteRes);
@@ -157,12 +198,23 @@ export default function App() {
     }
   }
 
+  // Tick once a second while working, so "time left" counts down
+  useEffect(() => {
+    if (!busy) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [busy]);
+
   // Stable values so memoised children (Dashboard, SiteBackground) don't re-render on every keystroke
   const recrawl = useCallback(() => formRef.current?.requestSubmit(), []);
   const bgShots = useMemo(() => (settings.siteBackground ? pages.filter((p) => p.screenshot).map((p) => p.screenshot!) : []), [pages, settings.siteBackground]);
   const bgColors = useMemo(() => (settings.siteBackground && summary ? [...new Set([...summary.palette.accents, ...summary.palette.backgrounds.map((c) => c.value)])].slice(0, 4) : []), [summary, settings.siteBackground]);
 
-  const pct = phase === "discover" ? 5 : phase === "pages" ? 5 + (progress.done / Math.max(progress.total, 1)) * 75 : phase === "links" ? 85 : 95;
+  const pct = phase === "discover" ? 5 : phase === "pages" ? 5 + (progress.done / Math.max(progress.total, 1)) * 75 : phase === "links" ? 85 : phase === "choose" ? 5 : 95;
+  // Time left: measured average per page once pages finish, otherwise the rough estimate
+  const elapsed = progress.started ? (now - progress.started) / 1000 : 0;
+  const perPage = progress.done ? elapsed / progress.done : SEC_PER_PAGE / CONCURRENCY;
+  const etaSec = phase === "pages" ? Math.max(0, (progress.total - progress.done) * perPage) + TAIL_SEC : phase === "links" ? TAIL_SEC : phase === "ai" ? 20 : 0;
 
   return (
     <div className="waves relative min-h-screen text-slate-800 dark:text-slate-100">
@@ -203,10 +255,6 @@ export default function App() {
                 className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400" />
               {url && !busy && <button type="button" onClick={() => setUrl("")} aria-label="Clear" className="text-slate-400 hover:text-slate-600"><X size={16} /></button>}
             </div>
-            <label className="hidden items-center gap-2 text-xs text-slate-500 sm:flex dark:text-slate-400" title="Maximum pages to crawl">
-              Pages <input type="number" min={1} max={30} value={limit} onChange={(e) => setLimit(Math.max(1, Math.min(30, +e.target.value || 1)))} disabled={busy}
-                className="w-14 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm text-slate-800 dark:border-white/10 dark:bg-white/5 dark:text-slate-100" />
-            </label>
             {busy ? (
               <button type="button" onClick={() => (stopRef.current = true)} className="rounded-xl bg-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-200">Stop</button>
             ) : (
@@ -236,13 +284,19 @@ export default function App() {
               <button type="button" onClick={() => setAuthOpen(true)} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"><LogIn size={16} /> Log in</button>
             ))}
           </form>
-          {busy && (
+          {busy && phase !== "choose" && (
             <div className="px-4 pb-3 md:px-8">
-              <div className="mb-1 flex justify-between text-xs text-slate-500 dark:text-slate-400">
-                <span className="truncate">{log[log.length - 1]}</span>
-                {phase === "pages" && <span>{progress.done}/{progress.total} pages</span>}
+              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                <span className="min-w-0 flex-1 truncate">{log[log.length - 1]}</span>
+                <span className="flex items-center gap-3 font-medium">
+                  {phase === "pages" && <span className="text-slate-700 dark:text-slate-200">Page {Math.min(progress.done + 1, progress.total)} of {progress.total}</span>}
+                  <span>{Math.round(pct)}%</span>
+                  {phase !== "discover" && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">~{fmtDuration(etaSec)} left</span>}
+                </span>
               </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all" style={{ width: `${pct}%` }} /></div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                <div className={`h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-700 ${phase === "discover" ? "animate-pulse" : ""}`} style={{ width: `${pct}%` }} />
+              </div>
             </div>
           )}
         </header>
@@ -265,6 +319,10 @@ export default function App() {
         </main>
       </div>
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      {chooser && (
+        <ChoosePages host={new URL(chooser.disc.root).hostname} total={chooser.disc.total} atLeast={chooser.disc.atLeast} max={chooser.disc.maxAnalyze}
+          initial={limit} estimate={estimateSeconds} fmt={fmtDuration} onStart={(n) => chooser.resolve(n)} onCancel={() => chooser.resolve(null)} />
+      )}
     </div>
   );
 }

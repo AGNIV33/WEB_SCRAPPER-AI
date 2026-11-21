@@ -19,6 +19,7 @@ async function autoScroll(page: Page) {
 export async function POST(req: Request) {
   const { url, mobile } = await req.json();
   let browser;
+  let lastShot: string | null = null; // kept so even a failed page still returns its screenshot
   try {
     const target = normalizeUrl(url);
     await assertPublicHost(target);
@@ -49,16 +50,31 @@ export async function POST(req: Request) {
     await autoScroll(page).catch(() => {});
     await new Promise((r) => setTimeout(r, 400));
 
-    const data = (await page.evaluate(EXTRACT_SCRIPT)) as Record<string, unknown> & {
+    // Screenshot FIRST, so every page that loads gets one even if data extraction fails later.
+    // Full page (capped height); if that fails (huge/odd pages), fall back to the visible viewport.
+    let shot: string;
+    try {
+      const height = Math.min(((await page.evaluate("document.documentElement.scrollHeight")) as number) || 800, 3600);
+      shot = (await page.screenshot({ type: "jpeg", quality: 55, clip: { x: 0, y: 0, width: 1280, height: Math.max(height, 800) }, captureBeyondViewport: true, encoding: "base64" })) as string;
+    } catch {
+      shot = (await page.screenshot({ type: "jpeg", quality: 60, encoding: "base64" })) as string;
+    }
+    lastShot = shot;
+
+    type Extracted = Record<string, unknown> & {
       tech: { name: string; version: string | null }[];
       srcVersions: { name: string; version: string }[];
       links: { href: string; blank: boolean; rel: string }[];
       forms: { action: string; method: string; hasPassword: boolean }[];
     };
-
-    // Screenshot: full page, capped height, JPEG to keep response small
-    const height = Math.min((await page.evaluate("document.documentElement.scrollHeight")) as number, 3600);
-    const shot = await page.screenshot({ type: "jpeg", quality: 55, clip: { x: 0, y: 0, width: 1280, height: Math.max(height, 800) }, captureBeyondViewport: true, encoding: "base64" });
+    let data: Extracted;
+    try {
+      data = (await page.evaluate(EXTRACT_SCRIPT)) as Extracted;
+    } catch {
+      // page may have navigated (JS redirect); wait and try once more
+      await new Promise((r) => setTimeout(r, 1500));
+      data = (await page.evaluate(EXTRACT_SCRIPT)) as Extracted;
+    }
 
     let mobileShot: string | null = null;
     if (mobile) {
@@ -125,7 +141,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (e) {
-    return Response.json({ url, error: (e as Error).message }, { status: 200 });
+    return Response.json({ url, error: (e as Error).message, screenshot: lastShot ? "data:image/jpeg;base64," + lastShot : undefined }, { status: 200 });
   } finally {
     if (browser) await browser.close().catch(() => {});
   }

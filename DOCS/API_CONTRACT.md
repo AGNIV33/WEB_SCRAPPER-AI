@@ -11,13 +11,16 @@ Finds pages on the same site (HTML links, breadth-first, then `sitemap.xml` if n
 
 **Request**
 ```json
-{ "url": "https://example.com", "limit": 6 }
+{ "url": "https://example.com" }
 ```
-`limit`: 1–50 (UI allows 1–30). Stops at the limit or about 35 s.
+Counts pages: breadth-first HTML crawl (up to 500 URLs or about 25 s), then sitemap (robots.txt / sitemap.xml / sitemap_index.xml).
 
 **Response**
 ```json
-{ "root": "https://example.com/", "pages": ["https://example.com/", "https://example.com/about"], "sitemapCount": 0 }
+{ "root": "https://example.com/", "pages": ["https://example.com/", "https://example.com/about"], "total": 120, "atLeast": false, "sitemapCount": 118, "maxAnalyze": 50, "seconds": 6.2 }
+```
+`pages` is ordered main pages first. `atLeast: true` means the site may have more than `total`. The browser then asks the user how many to analyse (1 to `min(total, maxAnalyze)`).
+```text
 ```
 
 ---
