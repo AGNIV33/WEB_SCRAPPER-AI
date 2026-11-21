@@ -44,7 +44,7 @@ Designers and developers who want to study, audit or recreate a website have to 
 | F12 | Detailed `design.md` (measured tokens + AI notes from screenshot) | Done |
 | F13 | Dashboard: sidebar layout, light/dark theme, GSAP animations, responsive | Done |
 | F14 | Downloads: `design.md`, `report.json`, screenshots | Done |
-| F15 | Login (email + password) and per-user history | Built, needs Supabase project |
+| F15 | Login (email + password) and per-user history | Built (Firebase), needs Firebase project setup |
 | F16 | Deploy to Vercel | Pending (user reviews locally first) |
 
 ## 7. Success metrics

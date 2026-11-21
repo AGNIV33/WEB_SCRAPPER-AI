@@ -30,11 +30,12 @@ Without a key the app still works and uses rule-based suggestions.
 
 ## Login and history (optional)
 
-1. Create a free project on https://supabase.com
-2. Run `supabase/migrations/001_history.sql` in the Supabase SQL editor.
-3. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to `.env.local` (and to Vercel).
+1. Create a free project on https://console.firebase.google.com
+2. Enable **Authentication > Email/Password** and create a **Firestore** database.
+3. Paste `firestore.rules` into **Firestore > Rules** and publish.
+4. Add the 4 `NEXT_PUBLIC_FIREBASE_*` values (see `.env.example`) to `.env.local` (and to Vercel).
 
-Logged-in users get every analysis saved (without screenshots; re-crawl to see them) and can reopen or delete it from **History**. Each user can only see their own data (row level security).
+Logged-in users get every analysis saved (without screenshots; re-crawl to see them) and can reopen or delete it from **History**. Each user can only see their own data (Firestore security rules).
 
 ## Deploy on Vercel
 

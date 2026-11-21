@@ -9,7 +9,7 @@
 | Headless browser | `puppeteer-core` 25 + local Chrome (dev) / `@sparticuz/chromium` 153 (Vercel) |
 | HTML parsing | `cheerio` |
 | AI | NVIDIA NIM (OpenAI-compatible API) |
-| Auth + history | Supabase (Auth, Postgres) via `@supabase/supabase-js` |
+| Auth + history | Firebase Auth (email/password) + Cloud Firestore, `firebase` 13 |
 | Hosting target | Vercel |
 
 ## High-level flow
@@ -22,7 +22,7 @@ Browser (App.tsx)
   │ 4. POST /api/links {links}                → broken links
   │ 5. buildSummary() in the browser          → one site summary
   │ 6. POST /api/ai {summary, screenshot}     → suggestions + design.md
-  │ 7. (logged in) saveAnalysis() → Supabase  → history
+  │ 7. (logged in) saveAnalysis() → Firestore → history
   ▼
 Dashboard.tsx renders everything
 ```
@@ -53,9 +53,9 @@ src/
     report.ts           types, buildSummary(), ruleSuggestions(), contrast helpers
     designMd.ts         buildDesignMd(): measured design.md
     vulnDb.ts           hand-checked outdated-library rules
-    supabase.ts         browser Supabase client (null if not configured)
+    firebase.ts         Firebase app, auth helpers (login, signup, logout, onUser); off if not configured
     history.ts          save / list / load / delete analyses
-supabase/migrations/001_history.sql
+firestore.rules         Firestore security rules (paste into Firebase console)
 DOCS/                   project documentation
 ```
 
@@ -70,13 +70,14 @@ DOCS/                   project documentation
 | Thinking disabled for Nemotron | Reasoning used the whole token budget and returned empty answers |
 | Measured design.md + AI notes inserted | AI can't change hex/px values; facts stay correct |
 | Page rendered client-only | Avoids hydration errors from browser extensions |
-| Supabase RLS | Users can only read/write their own history, enforced by the database |
+| Firestore security rules | Users can only read/write their own history, enforced by Firebase |
+| JSON strings in Firestore | Firestore rejects nested arrays and has a 1 MB doc limit |
 | No screenshots in history | Keeps the database small and free-tier friendly; users re-crawl to see screenshots |
 
 ## Security
 - `assertPublicHost` blocks localhost, private, link-local and CGNAT ranges (override: `ALLOW_PRIVATE_HOSTS=1`, local only).
 - Puppeteer aborts requests to literal private IPs.
-- No secrets in the client except the Supabase publishable key (safe by design with RLS).
+- No secrets in the client. The Firebase web config is public by design; data is protected by Firestore rules.
 - `NVIDIA_API_KEY` is server-only.
 
 ## Environment variables
@@ -85,8 +86,10 @@ DOCS/                   project documentation
 | `NVIDIA_API_KEY` | server | for AI (otherwise rule-based) |
 | `NVIDIA_MODEL` | server | no (default `nvidia/nemotron-3.5-super-vl-120b-a12b`) |
 | `NVIDIA_FALLBACK_MODEL` | server | no (default `nvidia/nemotron-3.5-lightning-30b-a3b`) |
-| `NEXT_PUBLIC_SUPABASE_URL` | client | for login/history |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | client | for login/history |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | client | for login/history |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | client | for login/history |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | client | for login/history |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | client | for login/history |
 | `CHROME_PATH` | server, local | only if Chrome isn't auto-found |
 | `ALLOW_PRIVATE_HOSTS` | server, local | testing only |
 

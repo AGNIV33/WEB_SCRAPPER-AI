@@ -13,9 +13,9 @@ Read this before changing code.
 3. **Facts, not guesses.** design.md and dashboard numbers must come from measured data. AI text may describe, but must not change hex codes, fonts or px values.
 4. **Serverless budget.** Keep each API call under its `maxDuration`. Do one page per `/api/page` call.
 5. **No secrets in the client.** Only `NEXT_PUBLIC_*` values are public. `NVIDIA_API_KEY` stays server-side.
-6. **Supabase data is private.** Every new table needs RLS policies scoped to `auth.uid()`. Don't store screenshots in history.
+6. **User data is private.** All user data lives under `users/{uid}` in Firestore and `firestore.rules` must keep it owner-only. Don't store screenshots in history.
 7. **Code inside the target page** lives in `src/lib/extractScript.ts` as a plain JS string. Don't import TS helpers into it.
-8. **Don't break no-key mode.** The app must still run without `NVIDIA_API_KEY` and without Supabase env vars.
+8. **Don't break no-key mode.** The app must still run without `NVIDIA_API_KEY` and without Firebase env vars.
 
 ## Windows / encoding gotcha
 On Windows PowerShell 5.1, `Get-Content` without `-Encoding UTF8` reads files as ANSI and corrupts characters like `·`, `…`, `≤`. When editing with PowerShell use:

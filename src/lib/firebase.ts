@@ -1,0 +1,62 @@
+import { getApps, initializeApp, type FirebaseApp } from "firebase/app";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
+  type Auth, type User,
+} from "firebase/auth";
+import { getFirestore, type Firestore } from "firebase/firestore";
+
+// Web config from Firebase console > Project settings > Your apps. These values are public by design;
+// data is protected by Firestore security rules (see firestore.rules).
+const config = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+export const authEnabled = !!(config.apiKey && config.authDomain && config.projectId && config.appId);
+
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+if (authEnabled) {
+  app = getApps()[0] || initializeApp(config);
+  auth = getAuth(app);
+  db = getFirestore(app);
+}
+
+export { auth, db };
+export type { User };
+
+export function onUser(cb: (u: User | null) => void) {
+  if (!auth) return () => {};
+  return onAuthStateChanged(auth, cb);
+}
+
+const friendly = (e: unknown) => {
+  const code = (e as { code?: string }).code || "";
+  const map: Record<string, string> = {
+    "auth/invalid-credential": "Wrong email or password.",
+    "auth/invalid-email": "That email address doesn't look right.",
+    "auth/email-already-in-use": "An account with this email already exists. Log in instead.",
+    "auth/weak-password": "Password is too weak (use at least 6 characters).",
+    "auth/too-many-requests": "Too many tries. Wait a minute and try again.",
+    "auth/operation-not-allowed": "Email/password sign-in is not enabled in Firebase yet.",
+    "auth/network-request-failed": "Network error. Check your connection.",
+  };
+  return new Error(map[code] || (e as Error).message);
+};
+
+export async function login(email: string, password: string) {
+  if (!auth) throw new Error("Login is not configured");
+  try { await signInWithEmailAndPassword(auth, email, password); } catch (e) { throw friendly(e); }
+}
+
+export async function signup(email: string, password: string) {
+  if (!auth) throw new Error("Login is not configured");
+  try { await createUserWithEmailAndPassword(auth, email, password); } catch (e) { throw friendly(e); }
+}
+
+export async function logout() {
+  if (auth) await signOut(auth);
+}

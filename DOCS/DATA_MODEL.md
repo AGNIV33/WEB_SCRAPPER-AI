@@ -2,7 +2,7 @@
 
 Two kinds of data:
 1. **In-memory analysis objects** (TypeScript, `src/lib/report.ts`). Nothing is stored unless the user is logged in.
-2. **Supabase** (only for logged-in users): table `public.analyses`. Screenshots are **not** stored; users re-crawl to see them.
+2. **Firebase Firestore** (only for logged-in users): `users/{uid}/analyses`. Screenshots are **not** stored; users re-crawl to see them.
 
 ## 1. TypeScript objects
 
@@ -40,30 +40,26 @@ Two kinds of data:
 ### AiResult (from `/api/ai`)
 `ai: boolean, model?, note?, error?, suggestions[{area, priority, title, detail}], designMd, rawDesignMd?`
 
-## 2. Supabase
+## 2. Firebase Firestore
 
-### Table `public.analyses`
-| Column | Type | Notes |
+### Collection `users/{uid}/analyses/{id}`
+One document per saved analysis. Large objects are stored as **JSON strings** because Firestore doesn't allow nested arrays (colour data uses `[hex, weight]` pairs) and documents must be under 1 MB.
+
+| Field | Type | Notes |
 |---|---|---|
-| id | uuid PK | `gen_random_uuid()` |
-| user_id | uuid | default `auth.uid()`, FK `auth.users`, cascade delete |
-| url | text | |
-| host | text | |
-| created_at | timestamptz | default `now()` |
-| duration_s | real | |
-| pages_count | int | |
-| security_score | int | |
-| seo_score | int | |
-| favicon | text | small data URL of the site icon (< 60 KB) |
-| summary | jsonb | Summary |
-| ai | jsonb | AiResult (includes design.md) |
-| site | jsonb | SiteResult |
-| pages | jsonb | PageResult[] with `screenshot` and `mobileScreenshot` removed |
+| url | string | |
+| host | string | |
+| created_at | timestamp | `serverTimestamp()` |
+| duration_s | number | |
+| pages_count | number | |
+| security_score | number | |
+| seo_score | number | |
+| favicon | string \| null | small data URL of the site icon (< 60 KB) |
+| summaryJson | string | `Summary` |
+| aiJson | string | `AiResult` (includes design.md) |
+| siteJson | string | `SiteResult` |
+| pagesJson | string | `PageResult[]` without screenshots; trimmed in steps (links, then per-page extras) until the document is < 950 KB |
 
-Index: `(user_id, created_at desc)`.
-
-**RLS:** select / insert / update / delete only where `auth.uid() = user_id`.
+**Security rules** (`firestore.rules`): a user can read, create and delete only under `users/{their uid}`. Updates are blocked. Everything else is closed.
 
 When a saved analysis is reopened, screenshot areas show a "Re-crawl to see screenshots" button.
-
-Migration: `supabase/migrations/001_history.sql`.

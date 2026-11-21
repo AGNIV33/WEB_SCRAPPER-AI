@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// Scrapper AI: each logged-in user can only read and write their own history.
+// Path: users/{userId}/analyses/{analysisId}
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/analyses/{analysisId} {
+      allow read, delete: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId
+                    && request.resource.data.keys().hasAll(['url', 'host', 'created_at', 'summaryJson', 'pagesJson'])
+                    && request.resource.data.created_at == request.time;
+      allow update: if false;
+    }
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

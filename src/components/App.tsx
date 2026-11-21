@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { User } from "@supabase/supabase-js";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
   Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check,
@@ -10,7 +9,7 @@ import { buildSummary, type LinksResult, type PageResult, type SiteResult, type 
 import Dashboard, { type AiResult, type View as DashView } from "@/components/Dashboard";
 import AuthModal from "@/components/AuthModal";
 import HistoryView from "@/components/HistoryView";
-import { authEnabled, supabase } from "@/lib/supabase";
+import { authEnabled, logout as fbLogout, onUser, type User } from "@/lib/firebase";
 import { loadAnalysis, saveAnalysis } from "@/lib/history";
 
 type View = DashView | "history";
@@ -66,12 +65,9 @@ export default function App() {
   const formRef = useRef<HTMLFormElement>(null);
   const busy = phase !== "idle" && phase !== "done";
 
-  // Keep the logged-in user in sync with Supabase
+  // Keep the logged-in user in sync with Firebase Auth
   useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
-    const { data } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
-    return () => data.subscription.unsubscribe();
+    return onUser(setUser);
   }, []);
 
   async function openFromHistory(id: string) {
@@ -84,7 +80,7 @@ export default function App() {
   }
 
   async function logout() {
-    await supabase?.auth.signOut();
+    await fbLogout();
     setUserMenu(false);
     if (view === "history") setView("overview");
   }

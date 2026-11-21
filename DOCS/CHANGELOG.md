@@ -3,6 +3,7 @@
 All dates 2026-11-21. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- **Switched login + history from Supabase to Firebase** (Firebase Auth email/password + Firestore at `users/{uid}/analyses`, rules in `firestore.rules`). Supabase code and migration removed.
 - Login with email + password (Supabase) and per-user **History**: auto-save, reopen, search, delete. Private by RLS. Needs a Supabase project to switch on. [a17766e]
 - Site favicon now fetched on the server and embedded, with a globe fallback (fixes broken icon on samsung.com). [3bbaca9]
 - History no longer saves screenshots (only design.md, colours, fonts, pages, scores…). Reopened items show a **Re-crawl to see screenshots** button. No storage bucket needed.

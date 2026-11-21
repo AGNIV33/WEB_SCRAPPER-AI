@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Mail, Lock, LogIn, UserPlus } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { login, signup } from "@/lib/firebase";
 
 export default function AuthModal({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -13,19 +13,11 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!supabase) return;
     setBusy(true); setMsg(null);
     try {
-      if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        onClose();
-      } else {
-        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } });
-        if (error) throw error;
-        if (data.session) onClose();
-        else setMsg({ ok: true, text: "Account created. Check your email and click the link to confirm, then log in." });
-      }
+      if (mode === "login") await login(email, password);
+      else await signup(email, password);
+      onClose();
     } catch (err) {
       setMsg({ ok: false, text: (err as Error).message });
     } finally {
