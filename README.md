@@ -28,6 +28,14 @@ npm run dev
 
 Without a key the app still works and uses rule-based suggestions.
 
+## Login and history (optional)
+
+1. Create a free project on https://supabase.com
+2. Run `supabase/migrations/001_history.sql` in the Supabase SQL editor.
+3. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to `.env.local` (and to Vercel).
+
+Logged-in users get every analysis saved (with screenshots) and can reopen or delete it from **History**. Each user can only see their own data (row level security).
+
 ## Deploy on Vercel
 
 1. Import this repo on https://vercel.com/new

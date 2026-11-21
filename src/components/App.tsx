@@ -1,12 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Bell, Moon, Sun, Menu,
+  Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check,
 } from "lucide-react";
 import { buildSummary, type LinksResult, type PageResult, type SiteResult, type Summary } from "@/lib/report";
-import Dashboard, { type AiResult, type View } from "@/components/Dashboard";
+import Dashboard, { type AiResult, type View as DashView } from "@/components/Dashboard";
+import AuthModal from "@/components/AuthModal";
+import HistoryView from "@/components/HistoryView";
+import { authEnabled, supabase } from "@/lib/supabase";
+import { loadAnalysis, saveAnalysis } from "@/lib/history";
+
+type View = DashView | "history";
 
 type Phase = "idle" | "discover" | "pages" | "links" | "ai" | "done";
 
@@ -28,6 +35,7 @@ const NAV: { id: View; label: string; icon: React.ElementType }[] = [
   { id: "suggestions", label: "Suggestions", icon: Lightbulb },
   { id: "design", label: "Design.md", icon: FileCode },
   { id: "tech", label: "Tech Stack", icon: Layers },
+  ...(authEnabled ? [{ id: "history" as View, label: "History", icon: History }] : []),
 ];
 
 function toggleTheme() {
@@ -49,8 +57,36 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("overview");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [userMenu, setUserMenu] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [historyKey, setHistoryKey] = useState(0);
   const stopRef = useRef(false);
   const busy = phase !== "idle" && phase !== "done";
+
+  // Keep the logged-in user in sync with Supabase
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    const { data } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  async function openFromHistory(id: string) {
+    setError(null);
+    try {
+      const a = await loadAnalysis(id);
+      setPages(a.pages); setSummary(a.summary); setAi(a.ai); setSite(a.site); setMeta(a.meta);
+      setUrl(a.summary.url || ""); setPhase("done"); setSaveState("saved"); setView("overview");
+    } catch (e) { setError((e as Error).message); }
+  }
+
+  async function logout() {
+    await supabase?.auth.signOut();
+    setUserMenu(false);
+    if (view === "history") setView("overview");
+  }
   const say = (m: string) => setLog((l) => [...l.slice(-4), m]);
 
   async function run(e: React.FormEvent) {
@@ -58,7 +94,7 @@ export default function App() {
     if (!url.trim() || busy) return;
     stopRef.current = false;
     const t0 = new Date();
-    setError(null); setPages([]); setSite(null); setSummary(null); setAi(null); setLog([]); setMeta(null); setView("overview");
+    setError(null); setPages([]); setSite(null); setSummary(null); setAi(null); setLog([]); setMeta(null); setView("overview"); setSaveState("idle");
     try {
       setPhase("discover"); say("Finding pages…");
       const disc = await post<{ root: string; pages: string[] }>("/api/discover", { url, limit });
@@ -108,8 +144,16 @@ export default function App() {
       setPhase("ai"); say("Writing suggestions and design.md…");
       const aiRes = await post<AiResult>("/api/ai", { summary: s, textSample: results[0]?.textSample, screenshot: results.find((r) => r.screenshot)?.screenshot }).catch((e) => ({ ai: false, error: e.message, suggestions: [], designMd: "" }) as AiResult);
       setAi(aiRes);
-      setMeta({ startedAt: t0, seconds: (Date.now() - t0.getTime()) / 1000 });
+      const seconds = (Date.now() - t0.getTime()) / 1000;
+      setMeta({ startedAt: t0, seconds });
       setPhase("done"); say("Done.");
+      // Save to history when logged in
+      if (user) {
+        setSaveState("saving");
+        saveAnalysis({ pages: results, site: siteRes.error ? null : siteRes, summary: s, ai: aiRes, seconds })
+          .then(() => { setSaveState("saved"); setHistoryKey((k) => k + 1); })
+          .catch((e) => { setSaveState("error"); setError(`Could not save to history: ${e.message}`); });
+      }
     } catch (err) {
       setError((err as Error).message);
       setPhase("idle");
@@ -167,7 +211,21 @@ export default function App() {
               <Moon size={18} className="dark:hidden" /><Sun size={18} className="hidden dark:block" />
             </button>
             <button type="button" aria-label="Notifications" className="hidden h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 sm:grid dark:border-white/10 dark:bg-white/5 dark:text-slate-300"><Bell size={18} /></button>
-            <div className="hidden h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-sm font-semibold text-white sm:grid">A</div>
+            {authEnabled && (user ? (
+              <div className="relative">
+                <button type="button" onClick={() => setUserMenu((o) => !o)} aria-label="Account menu"
+                  className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-sm font-semibold uppercase text-white">{(user.email || "?")[0]}</button>
+                {userMenu && (
+                  <div className="absolute right-0 top-12 z-50 w-60 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl dark:border-white/10 dark:bg-[#16162a]">
+                    <div className="truncate px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{user.email}</div>
+                    <button type="button" onClick={() => { setView("history"); setUserMenu(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-white/5"><History size={16} /> My history</button>
+                    <button type="button" onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"><LogOut size={16} /> Log out</button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button type="button" onClick={() => setAuthOpen(true)} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"><LogIn size={16} /> Log in</button>
+            ))}
           </form>
           {busy && (
             <div className="px-4 pb-3 md:px-8">
@@ -182,9 +240,20 @@ export default function App() {
 
         <main className="px-4 py-6 md:px-8">
           {error && <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">{error}</p>}
-          <Dashboard view={view} setView={setView} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} />
+          {authEnabled && summary && view !== "history" && (
+            <div className="mb-4 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              {!user ? <><CloudUpload size={14} /> <button onClick={() => setAuthOpen(true)} className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400">Log in</button> to save analyses to your history.</>
+                : saveState === "saving" ? <><CloudUpload size={14} className="animate-pulse" /> Saving to history…</>
+                : saveState === "saved" ? <><Check size={14} className="text-emerald-500" /> Saved to your history</>
+                : null}
+            </div>
+          )}
+          {view === "history"
+            ? <HistoryView loggedIn={!!user} onLogin={() => setAuthOpen(true)} onOpen={openFromHistory} refreshKey={historyKey} />
+            : <Dashboard view={view} setView={(v) => setView(v)} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} />}
         </main>
       </div>
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
     </div>
   );
 }
