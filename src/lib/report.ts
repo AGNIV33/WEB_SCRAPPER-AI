@@ -1,4 +1,4 @@
-﻿/* Shared types + helpers that turn raw page results into one site summary. Pure TS (runs on client and server). */
+/* Shared types + helpers that turn raw page results into one site summary. Pure TS (runs on client and server). */
 
 export type Entry = [string, number];
 export type PageResult = {
@@ -103,11 +103,11 @@ export function buildSummary(pages: PageResult[], site: SiteResult | null, links
   const seoPages = ok.map((p) => {
     const s = p.seo!; const issues: string[] = [];
     if (!s.title) issues.push("Missing <title>");
-    else if (s.title.length > 60) issues.push(`Title is long (${s.title.length} chars, aim â‰¤ 60)`);
+    else if (s.title.length > 60) issues.push(`Title is long (${s.title.length} chars, aim ≤ 60)`);
     else if (s.title.length < 15) issues.push(`Title is short (${s.title.length} chars)`);
     if (s.title && titleCount[s.title] > 1) issues.push("Title is used on more than one page");
     if (!s.description) issues.push("Missing meta description");
-    else if (s.description.length > 160) issues.push(`Meta description is long (${s.description.length} chars, aim â‰¤ 160)`);
+    else if (s.description.length > 160) issues.push(`Meta description is long (${s.description.length} chars, aim ≤ 160)`);
     if (s.h1.length === 0) issues.push("No H1 heading");
     if (s.h1.length > 1) issues.push(`${s.h1.length} H1 headings (use one)`);
     if (s.imagesNoAlt > 0) issues.push(`${s.imagesNoAlt} of ${s.images} images have no alt text`);
@@ -170,7 +170,7 @@ export function ruleSuggestions(s: Summary) {
   if (s.performance.avgLoadMs > 4000) out.push({ area: "Performance", priority: "high", title: "Pages load slowly", detail: `Average full load ${(s.performance.avgLoadMs / 1000).toFixed(1)}s. Compress images, defer scripts, use a CDN.` });
   const heavy = s.performance.pages.filter((p) => p.transferKB > 3000);
   if (heavy.length) out.push({ area: "Performance", priority: "medium", title: "Heavy pages", detail: heavy.map((p) => `${p.url}: ${(p.transferKB / 1024).toFixed(1)} MB`).join("; ") });
-  if (s.typography.families.length > 4) out.push({ area: "Design", priority: "low", title: "Too many font families", detail: `${s.typography.families.length} families in use. 2â€“3 is usually cleaner and faster.` });
+  if (s.typography.families.length > 4) out.push({ area: "Design", priority: "low", title: "Too many font families", detail: `${s.typography.families.length} families in use. 2–3 is usually cleaner and faster.` });
   const bg = s.palette.primaryBg, tx = s.palette.primaryText;
   const cr = contrast(bg, tx);
   if (cr < 4.5) out.push({ area: "Accessibility", priority: "high", title: "Low text contrast", detail: `Main text ${tx} on ${bg} has contrast ${cr.toFixed(2)}:1 (WCAG AA needs 4.5:1).` });
