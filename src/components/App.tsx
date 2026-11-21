@@ -316,7 +316,7 @@ export default function App() {
         <main className="px-4 py-6 md:px-8">
           {error && <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">{error}</p>}
           {authEnabled && summary && view !== "history" && view !== "settings" && (
-            <div className="mb-4 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <div className="glass-panel mb-4 flex w-fit items-center gap-2 rounded-full border border-transparent px-3 py-1 text-xs text-slate-500 dark:text-slate-400">
               {!user ? <><CloudUpload size={14} /> <button onClick={() => setAuthOpen(true)} className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400">Log in</button> to save analyses to your history.</>
                 : saveState === "saving" ? <><CloudUpload size={14} className="animate-pulse" /> Saving to history…</>
                 : saveState === "saved" ? <><Check size={14} className="text-emerald-500" /> Saved to your history</>

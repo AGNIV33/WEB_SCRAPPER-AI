@@ -237,7 +237,7 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
   if (!pages.length && !busy) return <div ref={root}><Empty /></div>;
 
   const header = (
-    <div className="mb-6 flex flex-wrap items-center gap-4">
+    <div className="glass-panel mb-6 flex flex-wrap items-center gap-4 rounded-2xl border border-transparent p-3">{/* gets a frosted panel in glass mode so the title stays readable */}
       <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5">
         <Favicon key={home?.url} srcs={[home?.faviconData, home?.seo?.favicon].filter(Boolean) as string[]} />
       </div>
