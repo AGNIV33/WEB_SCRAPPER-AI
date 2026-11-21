@@ -8,16 +8,16 @@ const FALLBACK = process.env.NVIDIA_FALLBACK_MODEL || "nvidia/nemotron-3.5-light
 
 async function chat(messages: { role: string; content: string }[], maxTokens: number) {
   try {
-    return await chatWith(MODEL, messages, maxTokens);
+    return await chatWith(MODEL, messages, maxTokens, 38000);
   } catch (e) {
     if (!FALLBACK || FALLBACK === MODEL) throw e;
-    return chatWith(FALLBACK, messages, maxTokens);
+    return chatWith(FALLBACK, messages, maxTokens, 18000); // fits in the 60s function limit
   }
 }
 
-async function chatWith(model: string, messages: { role: string; content: string }[], maxTokens: number) {
+async function chatWith(model: string, messages: { role: string; content: string }[], maxTokens: number, timeoutMs: number) {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 50000);
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch(`${BASE}/chat/completions`, {
       method: "POST",
