@@ -2,7 +2,7 @@
 
 Two kinds of data:
 1. **In-memory analysis objects** (TypeScript, `src/lib/report.ts`). Nothing is stored unless the user is logged in.
-2. **Supabase** (only for logged-in users): table `public.analyses` + storage bucket `screenshots`.
+2. **Supabase** (only for logged-in users): table `public.analyses`. Screenshots are **not** stored; users re-crawl to see them.
 
 ## 1. TypeScript objects
 
@@ -45,7 +45,7 @@ Two kinds of data:
 ### Table `public.analyses`
 | Column | Type | Notes |
 |---|---|---|
-| id | uuid PK | `gen_random_uuid()` (client sends its own UUID so screenshots can be uploaded first) |
+| id | uuid PK | `gen_random_uuid()` |
 | user_id | uuid | default `auth.uid()`, FK `auth.users`, cascade delete |
 | url | text | |
 | host | text | |
@@ -54,19 +54,16 @@ Two kinds of data:
 | pages_count | int | |
 | security_score | int | |
 | seo_score | int | |
+| favicon | text | small data URL of the site icon (< 60 KB) |
 | summary | jsonb | Summary |
-| ai | jsonb | AiResult |
+| ai | jsonb | AiResult (includes design.md) |
 | site | jsonb | SiteResult |
-| pages | jsonb | PageResult[] without image data; has `screenshotPath`, `mobilePath` |
-| thumbnail_path | text | first screenshot path |
+| pages | jsonb | PageResult[] with `screenshot` and `mobileScreenshot` removed |
 
 Index: `(user_id, created_at desc)`.
 
 **RLS:** select / insert / update / delete only where `auth.uid() = user_id`.
 
-### Storage bucket `screenshots` (private)
-- Path: `{user_id}/{analysis_id}/{index}.jpg` and `{index}-mobile.jpg`.
-- Policies: authenticated users can read, upload and delete only inside the folder named with their user id.
-- Read via signed URLs (1 hour).
+When a saved analysis is reopened, screenshot areas show a "Re-crawl to see screenshots" button.
 
 Migration: `supabase/migrations/001_history.sql`.

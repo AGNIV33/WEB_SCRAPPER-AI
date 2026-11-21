@@ -63,6 +63,7 @@ export default function App() {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [historyKey, setHistoryKey] = useState(0);
   const stopRef = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const busy = phase !== "idle" && phase !== "done";
 
   // Keep the logged-in user in sync with Supabase
@@ -190,7 +191,7 @@ export default function App() {
       <div className="lg:pl-64">
         {/* Top bar */}
         <header className="sticky top-0 z-20 border-b border-slate-200/60 bg-white/70 backdrop-blur dark:border-white/10 dark:bg-[#0d0d17]/70">
-          <form onSubmit={run} className="flex flex-wrap items-center gap-3 px-4 py-3 md:px-8">
+          <form ref={formRef} onSubmit={run} className="flex flex-wrap items-center gap-3 px-4 py-3 md:px-8">
             <button type="button" className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={22} /></button>
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm focus-within:border-indigo-400 dark:border-white/10 dark:bg-white/5">
               <Link2 size={18} className="shrink-0 text-slate-400" />
@@ -250,7 +251,7 @@ export default function App() {
           )}
           {view === "history"
             ? <HistoryView loggedIn={!!user} onLogin={() => setAuthOpen(true)} onOpen={openFromHistory} refreshKey={historyKey} />
-            : <Dashboard view={view} setView={(v) => setView(v)} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} />}
+            : <Dashboard view={view} setView={(v) => setView(v)} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} onRecrawl={() => formRef.current?.requestSubmit()} />}
         </main>
       </div>
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}

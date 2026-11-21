@@ -1,8 +1,8 @@
 # TASKS
 
 ## In progress / waiting
-- [ ] **Connect Supabase for login + history.** Code is done (`a17766e`). Needs a Supabase project: run `supabase/migrations/001_history.sql`, then set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Waiting on the owner's choice: new project "scrapper-ai" or the existing one.
-- [ ] **Test login flow end to end:** sign up → confirm email → log in → analyze → appears in History → reopen → delete.
+- [ ] **Connect Supabase for login + history.** Code is done (`a17766e`). Needs a Supabase project: run `supabase/migrations/001_history.sql`, then set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Owner is at the free limit of 2 Supabase projects; deciding between the existing "AGNIV33's Project" or another provider.
+- [ ] **Test login flow end to end:** sign up → confirm email → log in → analyze → appears in History → reopen (shows re-crawl prompt for screenshots) → delete.
 - [ ] **Push to GitHub:** `git push -u origin main` (local commits not pushed yet).
 - [ ] **Deploy to Vercel** after the owner reviews locally. Add env vars in Vercel. Check `/api/page` works with `@sparticuz/chromium` and stays under limits.
 

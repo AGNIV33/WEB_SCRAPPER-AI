@@ -9,7 +9,7 @@
 | Headless browser | `puppeteer-core` 25 + local Chrome (dev) / `@sparticuz/chromium` 153 (Vercel) |
 | HTML parsing | `cheerio` |
 | AI | NVIDIA NIM (OpenAI-compatible API) |
-| Auth + history | Supabase (Auth, Postgres, Storage) via `@supabase/supabase-js` |
+| Auth + history | Supabase (Auth, Postgres) via `@supabase/supabase-js` |
 | Hosting target | Vercel |
 
 ## High-level flow
@@ -71,6 +71,7 @@ DOCS/                   project documentation
 | Measured design.md + AI notes inserted | AI can't change hex/px values; facts stay correct |
 | Page rendered client-only | Avoids hydration errors from browser extensions |
 | Supabase RLS | Users can only read/write their own history, enforced by the database |
+| No screenshots in history | Keeps the database small and free-tier friendly; users re-crawl to see screenshots |
 
 ## Security
 - `assertPublicHost` blocks localhost, private, link-local and CGNAT ranges (override: `ALLOW_PRIVATE_HOSTS=1`, local only).

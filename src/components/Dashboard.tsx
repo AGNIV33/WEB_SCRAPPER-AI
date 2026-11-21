@@ -1,12 +1,12 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import {
   FileText, Shield, Search, Gauge, Palette, Type, Image as ImageIcon, Sparkles, Lightbulb, FileCode, Layers,
-  ExternalLink, Link2, Download, Copy, Check, AlertTriangle, ShieldCheck, ShieldAlert, Info, Globe, Rocket, Eye, Wand2,
+  ExternalLink, Link2, Download, RefreshCw, Copy, Check, AlertTriangle, ShieldCheck, ShieldAlert, Info, Globe, Rocket, Eye, Wand2,
 } from "lucide-react";
 gsap.registerPlugin(useGSAP);
 import { contrast, type PageResult, type SiteResult, type Summary } from "@/lib/report";
@@ -19,8 +19,24 @@ export type AiResult = {
 };
 type Props = {
   view: View; setView: (v: View) => void; pages: PageResult[]; site: SiteResult | null; summary: Summary | null;
-  ai: AiResult | null; busy: boolean; meta: { startedAt: Date; seconds: number } | null;
+  ai: AiResult | null; busy: boolean; meta: { startedAt: Date; seconds: number } | null; onRecrawl?: () => void;
 };
+
+/** Re-crawl action for saved analyses (they have no screenshots). */
+const RecrawlCtx = createContext<(() => void) | undefined>(undefined);
+function NoShots({ compact }: { compact?: boolean }) {
+  const recrawl = useContext(RecrawlCtx);
+  return (
+    <div className={`grid place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-center dark:border-white/15 dark:bg-white/5 ${compact ? "p-4" : "p-10"}`}>
+      <div>
+        <ImageIcon size={compact ? 22 : 32} className="mx-auto text-slate-400" />
+        <p className="mt-2 text-sm font-medium">Screenshots aren&apos;t saved in history</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Re-crawl the site to see them again.</p>
+        {recrawl && <button onClick={recrawl} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-500/25"><RefreshCw size={14} /> Re-crawl to see screenshots</button>}
+      </div>
+    </div>
+  );
+}
 
 /* ---------- small UI pieces ---------- */
 const card = "rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a] dark:shadow-none";
@@ -128,7 +144,11 @@ const pathOf = (u: string) => { try { const x = new URL(u); return x.pathname + 
 const hostOf = (u?: string) => { try { return new URL(u!).hostname; } catch { return u || ""; } };
 
 /* ---------- main ---------- */
-export default function Dashboard({ view, setView, pages, site, summary: s, ai, busy, meta }: Props) {
+export default function Dashboard(props: Props) {
+  return <RecrawlCtx.Provider value={props.onRecrawl}><DashboardInner {...props} /></RecrawlCtx.Provider>;
+}
+
+function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta }: Props) {
   useGoogleFonts(s?.typography.families.map((f) => f.value) || []);
   const root = useRef<HTMLDivElement>(null);
   useGSAP(() => {
@@ -223,14 +243,14 @@ export default function Dashboard({ view, setView, pages, site, summary: s, ai, 
               <PagesTable pages={pages.slice(0, 6)} />
             </Card>
             <Card title="Screenshots" icon={ImageIcon} onMore={() => setView("screenshots")}>
-              <div className="grid grid-cols-2 gap-3">
+              {!okPages.some((p) => p.screenshot) ? <NoShots compact /> : <div className="grid grid-cols-2 gap-3">
                 {okPages.slice(0, 4).map((p) => (
                   <button key={p.url} onClick={() => setView("screenshots")} className="min-w-0 text-left">
                     <img src={p.screenshot} alt="" className="aspect-[4/3] w-full rounded-lg border border-slate-200 object-cover object-top dark:border-white/10" />
                     <div className={`mt-1 truncate text-xs ${muted}`}>{pathOf(p.url) === "/" ? "Home" : pathOf(p.url)}</div>
                   </button>
                 ))}
-              </div>
+              </div>}
             </Card>
             <Card title="Security" icon={Shield} onMore={() => setView("security")}>
               <ul className="space-y-2.5">
@@ -307,6 +327,7 @@ export default function Dashboard({ view, setView, pages, site, summary: s, ai, 
 
       {view === "screenshots" && (
         <div className="grid gap-5">
+          {!okPages.some((p) => p.screenshot) && <NoShots />}
           {home?.mobileScreenshot && (
             <Card title="Homepage: desktop vs mobile" icon={ImageIcon}>
               <div className="grid gap-4 md:grid-cols-[1fr_240px]">
@@ -316,7 +337,7 @@ export default function Dashboard({ view, setView, pages, site, summary: s, ai, 
             </Card>
           )}
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {okPages.map((p) => (
+            {okPages.filter((p) => p.screenshot).map((p) => (
               <a key={p.url} href={p.screenshot} download={`${hostOf(p.url)}${pathOf(p.url).replace(/\W+/g, "-")}.jpg`} className={`${card} block overflow-hidden`} title="Download screenshot">
                 <img src={p.screenshot} alt="" className="aspect-[4/3] w-full object-cover object-top" />
                 <div className="p-3"><div className="truncate text-sm font-medium">{p.seo?.title || pathOf(p.url)}</div><div className={`truncate text-xs ${muted}`}>{pathOf(p.url)}</div></div>
@@ -486,7 +507,7 @@ function PageDetail({ p }: { p: PageResult }) {
   return (
     <Card title={seo.title || pathOf(p.url)} icon={FileText} right={<a href={p.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:underline">Open <ExternalLink size={12} /></a>}>
       <div className="grid gap-5 lg:grid-cols-2">
-        <img src={p.screenshot} alt="page screenshot" className="max-h-[640px] w-full rounded-xl border border-slate-200 object-cover object-top dark:border-white/10" />
+        {p.screenshot ? <img src={p.screenshot} alt="page screenshot" className="max-h-[640px] w-full rounded-xl border border-slate-200 object-cover object-top dark:border-white/10" /> : <NoShots compact />}
         <div className="space-y-3">
           {row("Description", seo.description)}
           {row("H1", seo.h1.join(" | "))}

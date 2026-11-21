@@ -1,4 +1,5 @@
--- Scrapper AI: saved analyses per user (history) + private screenshot storage.
+-- Scrapper AI: saved analyses per user (history).
+-- Screenshots are not stored; users re-crawl a site to see them again.
 
 create table if not exists public.analyses (
   id uuid primary key default gen_random_uuid(),
@@ -10,11 +11,11 @@ create table if not exists public.analyses (
   pages_count int,
   security_score int,
   seo_score int,
-  summary jsonb not null,
-  ai jsonb,
-  site jsonb,
-  pages jsonb not null,
-  thumbnail_path text
+  favicon text,          -- small data URL of the site icon
+  summary jsonb not null, -- colours, fonts, design tokens, SEO, security, performance
+  ai jsonb,               -- suggestions + design.md
+  site jsonb,             -- headers, SSL, robots, hosting
+  pages jsonb not null    -- per-page data without screenshots
 );
 
 create index if not exists analyses_user_created_idx on public.analyses (user_id, created_at desc);
@@ -29,15 +30,3 @@ create policy "Users update own analyses" on public.analyses
   for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 create policy "Users delete own analyses" on public.analyses
   for delete to authenticated using ((select auth.uid()) = user_id);
-
--- Private bucket; each user can only touch files in the folder named after their user id.
-insert into storage.buckets (id, name, public)
-values ('screenshots', 'screenshots', false)
-on conflict (id) do nothing;
-
-create policy "Users read own screenshots" on storage.objects
-  for select to authenticated using (bucket_id = 'screenshots' and (storage.foldername(name))[1] = (select auth.uid())::text);
-create policy "Users upload own screenshots" on storage.objects
-  for insert to authenticated with check (bucket_id = 'screenshots' and (storage.foldername(name))[1] = (select auth.uid())::text);
-create policy "Users delete own screenshots" on storage.objects
-  for delete to authenticated using (bucket_id = 'screenshots' and (storage.foldername(name))[1] = (select auth.uid())::text);

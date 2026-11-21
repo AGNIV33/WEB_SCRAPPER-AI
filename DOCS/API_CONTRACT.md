@@ -102,7 +102,7 @@ Max duration 120 s (main model 75 s, then fallback model 35 s, text only).
 `src/lib/history.ts`:
 | Function | Does |
 |---|---|
-| `saveAnalysis({pages, site, summary, ai, seconds})` | uploads screenshots, inserts row, returns id |
-| `listAnalyses()` | latest 100 rows + signed thumbnail URLs |
-| `loadAnalysis(id)` | full row + signed screenshot URLs |
-| `deleteAnalysis(id)` | removes screenshots + row |
+| `saveAnalysis({pages, site, summary, ai, seconds})` | inserts row without screenshots, returns id |
+| `listAnalyses()` | latest 100 rows (id, host, date, scores, favicon) |
+| `loadAnalysis(id)` | full row (no screenshots) |
+| `deleteAnalysis(id)` | deletes the row |
