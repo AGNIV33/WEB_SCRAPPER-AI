@@ -76,23 +76,74 @@ const sevTone = (s: string): Tone => (s === "high" ? "red" : s === "medium" ? "a
 const scoreTone = (n: number): Tone => (n >= 80 ? "green" : n >= 50 ? "amber" : "red");
 const scoreWord = (n: number) => (n >= 80 ? "Good" : n >= 50 ? "Moderate" : "Poor");
 
-function StatCard({ label, value, sub, subTone, icon: Icon, tint }: { label: string; value: React.ReactNode; sub?: string; subTone?: Tone; icon: React.ElementType; tint: "violet" | "amber" | "green" | "blue" | "red" }) {
-  const t = {
-    violet: "from-violet-50 to-white text-violet-600 dark:from-violet-500/15 dark:to-transparent dark:text-violet-300",
-    amber: "from-amber-50 to-white text-amber-600 dark:from-amber-500/15 dark:to-transparent dark:text-amber-300",
-    green: "from-emerald-50 to-white text-emerald-600 dark:from-emerald-500/15 dark:to-transparent dark:text-emerald-300",
-    blue: "from-sky-50 to-white text-sky-600 dark:from-sky-500/15 dark:to-transparent dark:text-sky-300",
-    red: "from-red-50 to-white text-red-600 dark:from-red-500/15 dark:to-transparent dark:text-red-300",
-  }[tint];
+type Tint = "violet" | "amber" | "green" | "blue" | "red";
+const tintCls: Record<Tint, { card: string; glow: string; icon: string }> = {
+  violet: { card: "from-violet-50 via-white to-white text-violet-600 dark:from-violet-500/20 dark:via-violet-500/5 dark:to-transparent dark:text-violet-300", glow: "bg-violet-400/30 dark:bg-violet-500/25", icon: "from-violet-500 to-indigo-500" },
+  amber: { card: "from-amber-50 via-white to-white text-amber-600 dark:from-amber-500/20 dark:via-amber-500/5 dark:to-transparent dark:text-amber-300", glow: "bg-amber-400/30 dark:bg-amber-500/25", icon: "from-amber-400 to-orange-500" },
+  green: { card: "from-emerald-50 via-white to-white text-emerald-600 dark:from-emerald-500/20 dark:via-emerald-500/5 dark:to-transparent dark:text-emerald-300", glow: "bg-emerald-400/30 dark:bg-emerald-500/25", icon: "from-emerald-400 to-teal-500" },
+  blue: { card: "from-sky-50 via-white to-white text-sky-600 dark:from-sky-500/20 dark:via-sky-500/5 dark:to-transparent dark:text-sky-300", glow: "bg-sky-400/30 dark:bg-sky-500/25", icon: "from-sky-400 to-blue-500" },
+  red: { card: "from-red-50 via-white to-white text-red-600 dark:from-red-500/20 dark:via-red-500/5 dark:to-transparent dark:text-red-300", glow: "bg-red-400/30 dark:bg-red-500/25", icon: "from-red-400 to-rose-500" },
+};
+
+function StatCard({ label, value, sub, subTone, icon: Icon, tint, chart, foot }: { label: string; value: React.ReactNode; sub?: string; subTone?: Tone; icon: React.ElementType; tint: Tint; chart?: React.ReactNode; foot?: React.ReactNode }) {
+  const t = tintCls[tint];
   return (
-    <div data-anim="card" className={`${card} bg-gradient-to-br p-5 ${t}`}>
-      <div className="flex items-start justify-between">
+    <div data-anim="card" className={`${card} group relative overflow-hidden bg-gradient-to-br p-5 transition duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_-12px_rgba(99,102,241,0.35)] ${t.card}`}>
+      {/* soft glow blob */}
+      <div className={`pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full blur-2xl transition-transform duration-500 group-hover:scale-125 ${t.glow}`} />
+      <div className="relative flex items-start justify-between">
         <div className={`text-sm font-medium ${muted}`}>{label}</div>
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/80 shadow-sm dark:bg-white/10"><Icon size={20} /></div>
+        <div className={`grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br text-white shadow-lg ${t.icon}`}><Icon size={20} /></div>
       </div>
-      <div className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{value}</div>
-      {sub && <div className="mt-1"><Badge tone={subTone}>{sub}</Badge></div>}
+      <div className="relative mt-2 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{value}</div>
+          {sub && <div className="mt-1.5"><Badge tone={subTone}>{sub}</Badge></div>}
+        </div>
+        {chart && <div className="shrink-0">{chart}</div>}
+      </div>
+      {foot && <div className={`relative mt-4 border-t border-black/5 pt-3 text-xs dark:border-white/10 ${muted}`}>{foot}</div>}
     </div>
+  );
+}
+
+/** Circular score gauge (0–100). Uses the card's text colour. */
+function Ring({ value, size = 76 }: { value: number; size?: number }) {
+  const r = (size - 10) / 2, c = 2 * Math.PI * r, off = c * (1 - Math.max(0, Math.min(100, value)) / 100);
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeOpacity={0.15} strokeWidth={8} />
+      <circle data-ring data-full={c} data-off={off} cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={8} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} />
+    </svg>
+  );
+}
+
+/** Mini bar chart: one bar per page. */
+function Bars({ values, labels }: { values: number[]; labels?: string[] }) {
+  const max = Math.max(...values, 1);
+  return (
+    <div className="flex h-16 items-end gap-1">
+      {values.slice(0, 12).map((v, i) => (
+        <div key={i} title={labels?.[i]} data-bar className="w-2.5 rounded-t-md bg-current opacity-80 transition-opacity hover:opacity-100" style={{ height: `${Math.max(8, (v / max) * 100)}%` }} />
+      ))}
+    </div>
+  );
+}
+
+/** Mini line + area chart. */
+function Spark({ values: raw, w = 110, h = 56 }: { values: number[]; w?: number; h?: number }) {
+  const values = raw.length < 2 ? [raw[0] || 0, raw[0] || 0] : raw;
+  const max = Math.max(...values), min = Math.min(...values), span = max - min || 1;
+  const pts = values.map((v, i) => [(i / (values.length - 1)) * (w - 6) + 3, h - 6 - ((v - min) / span) * (h - 14)]);
+  const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const id = "sg" + values.length + Math.round(max);
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+      <defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="currentColor" stopOpacity="0.35" /><stop offset="1" stopColor="currentColor" stopOpacity="0" /></linearGradient></defs>
+      <path data-area d={`${line} L${pts[pts.length - 1][0]},${h} L${pts[0][0]},${h} Z`} fill={`url(#${id})`} />
+      <path data-spark d={line} fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+      {pts.map(([x, y], i) => <circle key={i} data-pop cx={x} cy={y} r={2.5} fill="currentColor" />)}
+    </svg>
   );
 }
 
@@ -156,7 +207,17 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
     mm.add("(prefers-reduced-motion: no-preference)", () => {
       const q = gsap.utils.selector(root);
       gsap.from(q("[data-anim=card]"), { y: 28, opacity: 0, duration: 0.6, ease: "power3.out", stagger: 0.06, clearProps: "transform,opacity" });
-      gsap.from(q("[data-pop]"), { scale: 0.6, opacity: 0, duration: 0.45, ease: "back.out(2)", stagger: { each: 0.02, from: "start" }, delay: 0.25, clearProps: "transform,opacity" });
+      gsap.from(q("[data-pop]"), { scale: 0.6, opacity: 0, transformOrigin: "50% 50%", duration: 0.45, ease: "back.out(2)", stagger: { each: 0.02, from: "start" }, delay: 0.25, clearProps: "transform,opacity" });
+      // Stat tile charts
+      // fromTo with explicit end values, so re-runs (when AI results arrive) never capture a half-finished state
+      q("[data-ring]").forEach((el) => gsap.fromTo(el, { attr: { "stroke-dashoffset": el.getAttribute("data-full") || 0 } }, { attr: { "stroke-dashoffset": el.getAttribute("data-off") || 0 }, duration: 1.4, ease: "power3.out", delay: 0.3 }));
+      gsap.from(q("[data-bar]"), { scaleY: 0, transformOrigin: "50% 100%", duration: 0.7, ease: "back.out(1.6)", stagger: 0.05, delay: 0.3, clearProps: "transform" });
+      q("[data-grow]").forEach((el) => gsap.fromTo(el, { width: 0 }, { width: el.getAttribute("data-w") || "0%", duration: 1.1, ease: "power3.out", delay: 0.4 }));
+      gsap.from(q("[data-area]"), { opacity: 0, duration: 0.8, delay: 0.9 });
+      q("[data-spark]").forEach((el) => {
+        const len = (el as unknown as SVGPathElement).getTotalLength();
+        gsap.fromTo(el, { strokeDasharray: len, strokeDashoffset: len }, { strokeDashoffset: 0, duration: 1.3, ease: "power2.inOut", delay: 0.3, clearProps: "strokeDasharray,strokeDashoffset" });
+      });
       gsap.from(q("tbody tr, [data-row]"), { x: -12, opacity: 0, duration: 0.4, ease: "power2.out", stagger: 0.03, delay: 0.2, clearProps: "transform,opacity" });
       q("[data-count]").forEach((el) => {
         const end = parseFloat((el as HTMLElement).dataset.count || "0"), d = parseInt((el as HTMLElement).dataset.dec || "0");
@@ -215,10 +276,18 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
       {view === "overview" && (
         <div className="grid gap-5">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Pages Found" value={<Num n={s.pagesAnalyzed} />} sub={s.pagesFailed ? `${s.pagesFailed} failed` : "all scanned"} subTone={s.pagesFailed ? "red" : "green"} icon={FileText} tint="violet" />
-            <StatCard label="Security Score" value={<><Num n={s.security.score} /><span className="text-lg text-slate-400">/100</span></>} sub={scoreWord(s.security.score)} subTone={scoreTone(s.security.score)} icon={Shield} tint={s.security.score >= 80 ? "green" : s.security.score >= 50 ? "amber" : "red"} />
-            <StatCard label="SEO Score" value={<><Num n={s.seoScore} /><span className="text-lg text-slate-400">/100</span></>} sub={scoreWord(s.seoScore)} subTone={scoreTone(s.seoScore)} icon={Search} tint={s.seoScore >= 80 ? "green" : s.seoScore >= 50 ? "amber" : "red"} />
-            <StatCard label="Load Time" value={<><Num n={loadS} d={1} />s</>} sub={loadS <= 2.5 ? "Fast" : loadS <= 4 ? "Average" : "Slow"} subTone={loadS <= 2.5 ? "green" : loadS <= 4 ? "amber" : "red"} icon={Gauge} tint="blue" />
+            <StatCard label="Pages Found" value={<Num n={s.pagesAnalyzed} />} sub={s.pagesFailed ? `${s.pagesFailed} failed` : "all scanned"} subTone={s.pagesFailed ? "red" : "green"} icon={FileText} tint="violet"
+              chart={<Bars values={okPages.map((p) => p.seo?.wordCount || 0)} labels={okPages.map((p) => `${pathOf(p.url)}: ${p.seo?.wordCount ?? 0} words`)} />}
+              foot={<div className="flex justify-between"><span>Words per page</span><span className="font-semibold text-slate-700 dark:text-slate-200">{Math.round(okPages.reduce((t, p) => t + (p.seo?.wordCount || 0), 0) / Math.max(okPages.length, 1)).toLocaleString()} avg</span></div>} />
+            <StatCard label="Security Score" value={<><Num n={s.security.score} /><span className="text-lg text-slate-400">/100</span></>} sub={scoreWord(s.security.score)} subTone={scoreTone(s.security.score)} icon={Shield} tint={s.security.score >= 80 ? "green" : s.security.score >= 50 ? "amber" : "red"}
+              chart={<Ring value={s.security.score} />}
+              foot={(() => { const pass = s.security.checks.filter((c) => c.ok).length, all = s.security.checks.length; return <div><div className="mb-1.5 flex justify-between"><span>Checks passed</span><span className="font-semibold text-slate-700 dark:text-slate-200">{pass}/{all}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-black/5 dark:bg-white/10"><div data-grow data-w={`${(pass / Math.max(all, 1)) * 100}%`} className="h-full rounded-full bg-current" style={{ width: `${(pass / Math.max(all, 1)) * 100}%` }} /></div></div>; })()} />
+            <StatCard label="SEO Score" value={<><Num n={s.seoScore} /><span className="text-lg text-slate-400">/100</span></>} sub={scoreWord(s.seoScore)} subTone={scoreTone(s.seoScore)} icon={Search} tint={s.seoScore >= 80 ? "green" : s.seoScore >= 50 ? "amber" : "red"}
+              chart={<Ring value={s.seoScore} />}
+              foot={(() => { const clean = s.seo.pages.filter((p) => !p.issues.length).length, all = s.seo.pages.length, issues = s.seo.pages.reduce((n, p) => n + p.issues.length, 0); return <div><div className="mb-1.5 flex justify-between"><span>{issues} issues · {clean}/{all} pages clean</span><span className="font-semibold text-slate-700 dark:text-slate-200">{s.seo.hasSitemap ? "sitemap ✓" : "no sitemap"}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-black/5 dark:bg-white/10"><div data-grow data-w={`${(clean / Math.max(all, 1)) * 100}%`} className="h-full rounded-full bg-current" style={{ width: `${(clean / Math.max(all, 1)) * 100}%` }} /></div></div>; })()} />
+            <StatCard label="Load Time" value={<><Num n={loadS} d={1} />s</>} sub={loadS <= 2.5 ? "Fast" : loadS <= 4 ? "Average" : "Slow"} subTone={loadS <= 2.5 ? "green" : loadS <= 4 ? "amber" : "red"} icon={Gauge} tint="blue"
+              chart={<Spark values={s.performance.pages.map((p) => (p.load || p.loadMs) / 1000)} />}
+              foot={(() => { const l = s.performance.pages.map((p) => (p.load || p.loadMs) / 1000); return <div className="flex justify-between"><span>Fastest <b className="text-slate-700 dark:text-slate-200">{Math.min(...l).toFixed(1)}s</b></span><span>Slowest <b className="text-slate-700 dark:text-slate-200">{Math.max(...l).toFixed(1)}s</b></span></div>; })()} />
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
