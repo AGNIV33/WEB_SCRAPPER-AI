@@ -3,6 +3,7 @@
 All dates 2026-11-21. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- **Export menu**: PDF (detailed: cover, scores, suggestions, palette swatches, typography, design tokens, buttons, every page with details + full-page screenshots + mobile view, animations, security, SEO, broken links, tech, design.md appendix, page numbers), Excel (9 sheets, colour swatch cells), Markdown report, standalone HTML with screenshots, design.md, CSV, JSON, screenshots ZIP. All generated in the browser (`src/lib/exporters.ts`).
 - **Settings page**: Light / Dark / System theme, Glass mode, glass background options (site background on/off, blur, strength), default pages, animations on/off. Saved in `localStorage.settings`.
 - **Glass mode** (glassmorphism): frosted panels; background shows the analysed site's screenshots + colour palette (falls back to a gradient mesh).
 - Stat tiles: score rings, per-page bar chart, load-time sparkline, progress bars, glow + hover. [2155600]

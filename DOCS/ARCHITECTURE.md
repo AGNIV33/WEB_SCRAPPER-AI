@@ -48,12 +48,14 @@ src/
     HistoryView.tsx     saved analyses
     SettingsView.tsx    theme, glass mode, background, defaults
     SiteBackground.tsx  glass-mode background from the analysed site
+    ExportMenu.tsx      export dropdown
   lib/
     browser.ts          launches Chrome (local) or sparticuz chromium (Vercel)
     url.ts              normalizeUrl, SSRF guard (assertPublicHost), safeFetch
     extractScript.ts    JS string run inside the page (colours, fonts, animations, tech, SEO, design tokens)
     report.ts           types, buildSummary(), ruleSuggestions(), contrast helpers
     designMd.ts         buildDesignMd(): measured design.md
+    exporters.ts        PDF (jsPDF + autotable), Excel (exceljs), MD, HTML, CSV, JSON, ZIP (jszip)
     vulnDb.ts           hand-checked outdated-library rules
     firebase.ts         Firebase app, auth helpers (login, signup, logout, onUser); off if not configured
     history.ts          save / list / load / delete analyses

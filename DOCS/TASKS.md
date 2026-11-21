@@ -18,6 +18,8 @@
 - [ ] Lighthouse-style metrics (LCP, CLS) via the Performance API.
 
 ## Known issues
+- `npm audit`: moderate advisory in `uuid` (pulled in by `exceljs`). It only affects code that passes its own buffer to uuid; exceljs doesn't. Recheck when exceljs updates.
+- PDF uses built-in fonts (Latin only); non-Latin text in titles shows as `?`.
 - `npm audit` reports high advisories in `@grpc/grpc-js` (pulled in by `firebase`). They affect gRPC servers in Node; this app only uses Firestore in the browser. Recheck when Firebase updates.
 - Cross-origin stylesheets can't be read, so some @keyframes, CSS variables and breakpoints may be missing (shown in the UI).
 - Some sites block headless Chrome or rate-limit; pages can fail with timeouts.

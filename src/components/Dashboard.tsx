@@ -9,6 +9,7 @@ import {
   ExternalLink, Link2, Download, RefreshCw, Copy, Check, AlertTriangle, ShieldCheck, ShieldAlert, Info, Globe, Rocket, Eye, Wand2,
 } from "lucide-react";
 gsap.registerPlugin(useGSAP);
+import ExportMenu from "@/components/ExportMenu";
 import { contrast, type PageResult, type SiteResult, type Summary } from "@/lib/report";
 
 export type View = "overview" | "colors" | "fonts" | "pages" | "screenshots" | "animations" | "security" | "suggestions" | "design" | "tech";
@@ -248,8 +249,7 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
       </div>
       {s && (
         <div className="ml-auto flex gap-2">
-          <button onClick={() => download("report.json", JSON.stringify({ summary: s, site, ai, pages: pages.map((p) => ({ ...p, screenshot: undefined, mobileScreenshot: undefined })) }, null, 2), "application/json")}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"><Download size={16} /> Report</button>
+          <ExportMenu data={{ pages, site, summary: s, ai, meta }} />
         </div>
       )}
     </div>
