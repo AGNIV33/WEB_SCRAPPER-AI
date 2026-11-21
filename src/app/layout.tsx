@@ -11,7 +11,10 @@ export const metadata: Metadata = {
 };
 
 // Sets the saved theme before first paint (no flash).
-const themeScript = `try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}`;
+const themeScript = `try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}
+// Some browser extensions (e.g. Bitdefender) add attributes like bis_skin_checked before React loads,
+// which causes hydration warnings. Strip them during startup.
+try{var o=new MutationObserver(function(ms){ms.forEach(function(m){m.target.removeAttribute&&m.target.removeAttribute(m.attributeName)})});o.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['bis_skin_checked','bis_register','bis_use','bis_size','bis_id']});setTimeout(function(){o.disconnect()},10000)}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
