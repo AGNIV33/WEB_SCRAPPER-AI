@@ -139,8 +139,16 @@ export default function App() {
 
   // Keep the logged-in user in sync with Firebase Auth
   useEffect(() => {
+    let had = false;
     return onUser((u) => {
       setUser(u);
+      // Logged out: stop any scan and clear everything the account was looking at, so no data stays on screen
+      if (!u && had) {
+        stopRef.current = true;
+        setPhase("idle"); setPages([]); setSite(null); setSummary(null); setAi(null); setMeta(null); setLog([]); setUrl(""); setSiteIcon(null);
+        setGuestRun(false); setSaveState("idle"); setUserMenu(false); setChooser(null); setView("overview");
+      }
+      had = !!u;
       if (u) getUsage().then(setUsage); else setUsage(null);
       setIsAdmin(false);
       if (u) {
