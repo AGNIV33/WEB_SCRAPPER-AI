@@ -178,6 +178,13 @@ export default function App() {
 
   // Admin: new feedback shows up in the bell and as a badge on the sidebar item
   const [newFeedback, setNewFeedback] = useState(0);
+  // Going to a page opens its sidebar group once; after that the user can still collapse it with the arrow
+  const [seenView, setSeenView] = useState(view);
+  if (seenView !== view) {
+    setSeenView(view);
+    const g = NAV_GROUPS.find((x) => x.title && x.items.some((i) => i.id === view));
+    if (g && !openGroups.has(g.id)) setOpenGroups(new Set([...openGroups, g.id]));
+  }
   const navGroups = useMemo<typeof NAV_GROUPS>(() => (isAdmin ? [...NAV_GROUPS.slice(0, -1), { id: "admin", items: [{ id: "admin" as View, label: "Admin dashboard", icon: ShieldCheck }] }, NAV_GROUPS[NAV_GROUPS.length - 1]] : NAV_GROUPS), [isAdmin]);
   const inboxCount = isAdmin ? newFeedback : 0;
   useEffect(() => {
@@ -382,7 +389,7 @@ export default function App() {
         <nav data-tour="nav" className="no-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
           {navGroups.map((g) => {
             // a group is open if the user opened it, or it holds the current page
-            const open = !g.title || mini || openGroups.has(g.id) || g.items.some((i) => i.id === view);
+            const open = !g.title || mini || openGroups.has(g.id);
             const GIcon = g.icon;
             return (
               <div key={g.id} className={g.title ? "mt-1" : ""}>
