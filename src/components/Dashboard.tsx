@@ -14,7 +14,7 @@ import MediaView from "@/components/MediaView";
 import ScreenshotGallery from "@/components/ScreenshotGallery";
 import { A11yView, SpeedView } from "@/components/AuditViews";
 import CodeView from "@/components/CodeView";
-import { LockOverlay } from "@/components/PlanViews";
+import { LockedCard } from "@/components/PlanViews";
 import ShareButton from "@/components/ShareButton";
 import { contrast, type PageResult, type SiteResult, type Summary } from "@/lib/report";
 
@@ -211,7 +211,7 @@ export default Dashboard;
 
 function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta, guest, onLogin, readOnly }: Props) {
   /** Guests see these cards blurred with a "Sign in" button. */
-  const lock = (node: React.ReactNode) => (guest && onLogin ? <LockOverlay onLogin={onLogin}>{node}</LockOverlay> : node);
+  const lock = (meta: { title: string; icon: React.ElementType; teaser: string; compact?: boolean }, node: React.ReactNode) => (guest && onLogin ? <LockedCard onLogin={onLogin} {...meta} /> : node);
   useGoogleFonts(s?.typography.families.map((f) => f.value) || []);
   const root = useRef<HTMLDivElement>(null);
   useGSAP(() => {
@@ -297,13 +297,13 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
             <StatCard label="Pages Found" value={<Num n={s.pagesAnalyzed} />} sub={s.pagesFailed ? `${s.pagesFailed} failed` : "all scanned"} subTone={s.pagesFailed ? "red" : "green"} icon={FileText} tint="violet"
               chart={<Bars values={okPages.map((p) => p.seo?.wordCount || 0)} labels={okPages.map((p) => `${pathOf(p.url)}: ${p.seo?.wordCount ?? 0} words`)} />}
               foot={<div className="flex justify-between"><span>Words per page</span><span className="font-semibold text-slate-700 dark:text-slate-200">{Math.round(okPages.reduce((t, p) => t + (p.seo?.wordCount || 0), 0) / Math.max(okPages.length, 1)).toLocaleString()} avg</span></div>} />
-            {lock(<StatCard label="Security Score" value={<><Num n={s.security.score} /><span className="text-lg text-slate-400">/100</span></>} sub={scoreWord(s.security.score)} subTone={scoreTone(s.security.score)} icon={Shield} tint={s.security.score >= 80 ? "green" : s.security.score >= 50 ? "amber" : "red"}
+            {lock({ title: "Security Score", icon: Shield, teaser: "Your security score out of 100", compact: true }, <StatCard label="Security Score" value={<><Num n={s.security.score} /><span className="text-lg text-slate-400">/100</span></>} sub={scoreWord(s.security.score)} subTone={scoreTone(s.security.score)} icon={Shield} tint={s.security.score >= 80 ? "green" : s.security.score >= 50 ? "amber" : "red"}
               chart={<Ring value={s.security.score} />}
               foot={(() => { const pass = s.security.checks.filter((c) => c.ok).length, all = s.security.checks.length; return <div><div className="mb-1.5 flex justify-between"><span>Checks passed</span><span className="font-semibold text-slate-700 dark:text-slate-200">{pass}/{all}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-black/5 dark:bg-white/10"><div data-grow data-w={`${(pass / Math.max(all, 1)) * 100}%`} className="h-full rounded-full bg-current" style={{ width: `${(pass / Math.max(all, 1)) * 100}%` }} /></div></div>; })()} />)}
-            {lock(<StatCard label="SEO Score" value={<><Num n={s.seoScore} /><span className="text-lg text-slate-400">/100</span></>} sub={scoreWord(s.seoScore)} subTone={scoreTone(s.seoScore)} icon={Search} tint={s.seoScore >= 80 ? "green" : s.seoScore >= 50 ? "amber" : "red"}
+            {lock({ title: "SEO Score", icon: Search, teaser: "Your SEO score and issues found", compact: true }, <StatCard label="SEO Score" value={<><Num n={s.seoScore} /><span className="text-lg text-slate-400">/100</span></>} sub={scoreWord(s.seoScore)} subTone={scoreTone(s.seoScore)} icon={Search} tint={s.seoScore >= 80 ? "green" : s.seoScore >= 50 ? "amber" : "red"}
               chart={<Ring value={s.seoScore} />}
               foot={(() => { const clean = s.seo.pages.filter((p) => !p.issues.length).length, all = s.seo.pages.length, issues = s.seo.pages.reduce((n, p) => n + p.issues.length, 0); return <div><div className="mb-1.5 flex justify-between"><span>{issues} issues · {clean}/{all} pages clean</span><span className="font-semibold text-slate-700 dark:text-slate-200">{s.seo.hasSitemap ? "sitemap ✓" : "no sitemap"}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-black/5 dark:bg-white/10"><div data-grow data-w={`${(clean / Math.max(all, 1)) * 100}%`} className="h-full rounded-full bg-current" style={{ width: `${(clean / Math.max(all, 1)) * 100}%` }} /></div></div>; })()} />)}
-            {lock(<StatCard label="Load Time" value={<><Num n={loadS} d={1} />s</>} sub={loadS <= 2.5 ? "Fast" : loadS <= 4 ? "Average" : "Slow"} subTone={loadS <= 2.5 ? "green" : loadS <= 4 ? "amber" : "red"} icon={Gauge} tint="blue"
+            {lock({ title: "Load Time", icon: Gauge, teaser: "How fast each page loads", compact: true }, <StatCard label="Load Time" value={<><Num n={loadS} d={1} />s</>} sub={loadS <= 2.5 ? "Fast" : loadS <= 4 ? "Average" : "Slow"} subTone={loadS <= 2.5 ? "green" : loadS <= 4 ? "amber" : "red"} icon={Gauge} tint="blue"
               chart={<Spark values={s.performance.pages.map((p) => (p.load || p.loadMs) / 1000)} />}
               foot={(() => { const l = s.performance.pages.map((p) => (p.load || p.loadMs) / 1000); return <div className="flex justify-between"><span>Fastest <b className="text-slate-700 dark:text-slate-200">{Math.min(...l).toFixed(1)}s</b></span><span>Slowest <b className="text-slate-700 dark:text-slate-200">{Math.max(...l).toFixed(1)}s</b></span></div>; })()} />)}
           </div>
@@ -326,10 +326,10 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
           </div>
 
           <div className="grid gap-5 xl:grid-cols-3">
-            {lock(<Card title="Pages" icon={FileText} right={`${okPages.length} pages`} onMore={() => setView("pages")}>
+            {lock({ title: "Pages", icon: FileText, teaser: "Every page with its title and word count" }, <Card title="Pages" icon={FileText} right={`${okPages.length} pages`} onMore={() => setView("pages")}>
               <PagesTable pages={pages.slice(0, 6)} />
             </Card>)}
-            {lock(<Card title="Screenshots" icon={ImageIcon} onMore={() => setView("screenshots")}>
+            {lock({ title: "Screenshots", icon: ImageIcon, teaser: "Desktop, tablet and phone captures" }, <Card title="Screenshots" icon={ImageIcon} onMore={() => setView("screenshots")}>
               {!okPages.some((p) => p.screenshot) ? <NoShots compact /> : <div className="grid grid-cols-2 gap-3">
                 {okPages.slice(0, 4).map((p) => (
                   <button key={p.url} onClick={() => setView("screenshots")} className="min-w-0 text-left">
@@ -339,7 +339,7 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
                 ))}
               </div>}
             </Card>)}
-            {lock(<Card title="Security" icon={Shield} onMore={() => setView("security")}>
+            {lock({ title: "Security", icon: Shield, teaser: "Headers, SSL, cookies and more" }, <Card title="Security" icon={Shield} onMore={() => setView("security")}>
               <ul className="space-y-2.5">
                 {[...secIssues, ...secGood].slice(0, 6).map((x) => (
                   <li key={x.t} className="flex items-center gap-3 text-sm">
@@ -354,13 +354,13 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
 
           <div className="grid gap-5 xl:grid-cols-3">
             <Card title="Animations" icon={Sparkles} right={`${animTags.length} detected`} onMore={() => setView("animations")}>
-              {animTags.length ? <div className="flex flex-wrap gap-2">{animTags.slice(0, 14).map((t) => <Badge key={t}>{t}</Badge>)}</div> : <p className={`text-sm ${muted}`}>No keyframes or animation libraries found.</p>}
+              {animTags.length ? <div className="flex flex-wrap gap-2">{animTags.slice(0, 8).map((t) => <Badge key={t}>{t}</Badge>)}{animTags.length > 8 && <button onClick={() => setView("animations")} className="rounded-full px-2 py-0.5 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-300">+{animTags.length - 8} more</button>}</div> : <p className={`text-sm ${muted}`}>No keyframes or animation libraries found.</p>}
               <p className={`mt-3 text-xs ${muted}`}>{s.animations.transitionElements} elements use CSS transitions.</p>
             </Card>
-            {lock(<Card title="AI Suggestions" icon={Lightbulb} onMore={() => setView("suggestions")}>
+            {lock({ title: "AI Suggestions", icon: Lightbulb, teaser: "Practical fixes written by AI" }, <Card title="AI Suggestions" icon={Lightbulb} onMore={() => setView("suggestions")}>
               {ai ? <SuggestionList items={ai.suggestions} limit={3} /> : <p className={`text-sm ${muted}`}>Generating…</p>}
             </Card>)}
-            {lock(<Card title="Design.md" icon={FileCode} onMore={() => setView("design")}>
+            {lock({ title: "Design.md", icon: FileCode, teaser: "A ready-to-use design system file" }, <Card title="Design.md" icon={FileCode} onMore={() => setView("design")}>
               {ai?.designMd ? (
                 <>
                   <CodePreview text={ai.designMd} lines={9} />

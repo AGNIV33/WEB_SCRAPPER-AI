@@ -25,18 +25,25 @@ export function LockedView({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-/** Small lock overlay for a card on the Overview page (guests). */
-export function LockOverlay({ onLogin, children, label = "Sign in to see this" }: { onLogin: () => void; children: React.ReactNode; label?: string }) {
+/** A clean locked card for guests on the Overview page (instead of blurring real content): title, a hint and one button. */
+export function LockedCard({ onLogin, title, icon: Icon, teaser, compact = false }: { onLogin: () => void; title: string; icon: React.ElementType; teaser: string; compact?: boolean }) {
   return (
-    <div className="relative">
-      <div className="pointer-events-none select-none blur-[6px] opacity-60" aria-hidden>{children}</div>
-      <button onClick={onLogin} className="absolute inset-0 m-auto flex h-fit w-fit items-center gap-2 rounded-xl bg-white/90 px-4 py-2 text-sm font-semibold text-indigo-700 shadow-lg dark:bg-[#16162a]/90 dark:text-indigo-200">
-        <Lock size={15} /> {label}
-      </button>
+    <div className={`${card} flex h-full flex-col p-5 ${compact ? "min-h-[190px]" : "min-h-[250px]"}`}>
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"><Icon size={16} /></span>
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <Lock size={14} className="shrink-0 text-slate-400" />
+      </div>
+      <div className="mt-4 space-y-2.5" aria-hidden>
+        {[100, 78, 56].slice(0, compact ? 2 : 3).map((w) => <div key={w} className="h-2.5 rounded-full bg-slate-100 dark:bg-white/10" style={{ width: `${w}%` }} />)}
+      </div>
+      <div className="mt-auto pt-5">
+        <p className={`mb-3 text-xs ${muted}`}>{teaser}</p>
+        <button onClick={onLogin} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-500/25"><LogIn size={15} /> Sign in to unlock</button>
+      </div>
     </div>
   );
 }
-
 const PLANS = [
   { id: "free", name: "Free", price: "₹0", period: "forever", features: [`${LIMITS.freeSites} websites`, `${LIMITS.freeScansPerSite} scans per website (retries)`, "Up to 50 pages per scan", "All analysis features", "History, compare, share links"] },
   { id: "pro", name: "Pro", price: "₹499", period: "per month", popular: true, features: ["Unlimited websites", "Unlimited re-scans", "Weekly auto-scan + email alerts", "Priority AI (faster)", "Everything in Free"] },
