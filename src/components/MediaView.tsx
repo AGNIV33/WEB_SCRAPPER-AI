@@ -2,13 +2,15 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useMemo, useState } from "react";
-import { Image as ImageIcon, Film, Music, Shapes, Layers, Star, Download, ExternalLink, CheckSquare, Square, Loader2, Info, Archive } from "lucide-react";
+import { Image as ImageIcon, Film, Music, Shapes, Layers, Star, Download, Eye, CheckSquare, Square, Loader2, Info, Archive, Sparkles } from "lucide-react";
+import Lightbox, { type LightboxItem } from "@/components/Lightbox";
 import type { MediaItem, PageResult } from "@/lib/report";
 
 type Item = MediaItem & { pages: string[] };
 const TYPES = [
   { id: "all", label: "All", icon: Layers },
   { id: "image", label: "Images", icon: ImageIcon },
+  { id: "gif", label: "GIFs", icon: Sparkles },
   { id: "svg", label: "SVG", icon: Shapes },
   { id: "background", label: "Backgrounds", icon: Layers },
   { id: "video", label: "Videos", icon: Film },
@@ -67,6 +69,7 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
   const [busy, setBusy] = useState<{ done: number; total: number } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [broken, setBroken] = useState<Set<string>>(new Set());
+  const [viewing, setViewing] = useState<number | null>(null);
 
   const tiny = (it: Item) => !!(it.w && it.h && it.w < 48 && it.h < 48 && it.type !== "icon");
   const shown = items.filter((it) => (type === "all" || it.type === type) && !(hideTiny && tiny(it)));
@@ -151,7 +154,8 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
             <div key={it.url} className={`${card} group overflow-hidden ${on ? "ring-2 ring-indigo-500" : ""}`}>
               <button onClick={() => toggle(it.url)} className="relative block aspect-[4/3] w-full bg-[repeating-conic-gradient(#e2e8f0_0%_25%,#fff_0%_50%)] bg-[length:16px_16px] dark:bg-[repeating-conic-gradient(#1e1e2e_0%_25%,#26263a_0%_50%)]">
                 {it.type === "video" ? (
-                  it.poster ? <img src={it.poster} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : <Film className="absolute inset-0 m-auto text-slate-400" size={32} />
+                  it.poster ? <img src={it.poster} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    : <video src={`${it.url}#t=0.5`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
                 ) : it.type === "audio" ? (
                   <Music className="absolute inset-0 m-auto text-slate-400" size={32} />
                 ) : broken.has(it.url) ? (
@@ -166,18 +170,28 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
               <div className="p-3">
                 <div className="truncate text-xs font-medium" title={it.url.startsWith("data:") ? "inline SVG" : it.url}>{it.url.startsWith("data:") ? `Inline ${it.type.toUpperCase()}` : fileName(it, i)}</div>
                 <div className="mt-0.5 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                  <span>{it.type}{it.w && it.h ? ` · ${it.w}×${it.h}` : ""}</span>
+                  <span>{it.type}{it.w && it.h ? ` · ${it.w}×${it.h}` : ""}{it.size ? ` · ${it.size > 1048576 ? (it.size / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(it.size / 1024)) + " KB"}` : ""}</span>
                   <span>{it.pages.length > 1 ? `${it.pages.length} pages` : ""}</span>
                 </div>
                 <div className="mt-2 flex gap-2">
+                  <button onClick={() => setViewing(i)} title="View" className="grid w-8 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><Eye size={13} /></button>
                   <button onClick={() => downloadOne(it, i)} className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-indigo-50 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-500/15 dark:text-indigo-200"><Download size={13} /> Download</button>
-                  {!it.url.startsWith("data:") && <a href={it.url} target="_blank" rel="noreferrer noopener" title="Open original" className="grid w-8 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><ExternalLink size={13} /></a>}
                 </div>
               </div>
             </div>
           );
         })}
       </div>
+      {viewing !== null && (
+        <Lightbox
+          items={shown.map((it, i): LightboxItem => ({
+            src: it.url, kind: it.type === "video" ? "video" : it.type === "audio" ? "audio" : "image",
+            title: it.url.startsWith("data:") ? `Inline ${it.type.toUpperCase()}` : fileName(it, i),
+            subtitle: [it.type, it.w && it.h ? `${it.w}×${it.h}` : "", it.pages[0]].filter(Boolean).join(" · "),
+            original: it.url.startsWith("data:") ? undefined : it.url,
+          }))}
+          index={viewing} onIndex={setViewing} onClose={() => setViewing(null)} onDownload={(i) => downloadOne(shown[i], i)} />
+      )}
     </div>
   );
 }

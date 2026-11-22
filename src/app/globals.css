@@ -5,6 +5,7 @@
 @theme inline {
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
+  --font-signature: var(--font-dancing), cursive;
 }
 
 html { color-scheme: light; }

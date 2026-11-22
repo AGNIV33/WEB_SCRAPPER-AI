@@ -6,11 +6,12 @@ import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import {
   FileText, Shield, Search, Gauge, Palette, Type, Image as ImageIcon, Sparkles, Lightbulb, FileCode, Layers,
-  ExternalLink, Link2, Download, RefreshCw, Copy, Check, AlertTriangle, ShieldCheck, ShieldAlert, Info, Globe, Rocket, Eye, Wand2,
+  ExternalLink, Link2, Download, RefreshCw, ChevronDown, Copy, Check, AlertTriangle, ShieldCheck, ShieldAlert, Info, Globe, Rocket, Eye, Wand2,
 } from "lucide-react";
 gsap.registerPlugin(useGSAP);
 import ExportMenu from "@/components/ExportMenu";
 import MediaView from "@/components/MediaView";
+import ScreenshotGallery from "@/components/ScreenshotGallery";
 import { contrast, type PageResult, type SiteResult, type Summary } from "@/lib/report";
 
 export type View = "overview" | "colors" | "fonts" | "pages" | "screenshots" | "media" | "animations" | "security" | "suggestions" | "design" | "tech";
@@ -18,6 +19,7 @@ export type AiResult = {
   ai: boolean; model?: string; note?: string; error?: string | null;
   suggestions: { area: string; priority: string; title: string; detail: string }[];
   designMd: string; rawDesignMd?: string;
+  about?: { summary: string; whatItIs: string; audience: string; offerings: string[]; sections: string[]; tone: string; mainAction: string };
 };
 type Props = {
   view: View; setView: (v: View) => void; pages: PageResult[]; site: SiteResult | null; summary: Summary | null;
@@ -281,6 +283,7 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
 
       {view === "overview" && (
         <div className="grid gap-5">
+          <AboutCard ai={ai} busy={busy} />
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Pages Found" value={<Num n={s.pagesAnalyzed} />} sub={s.pagesFailed ? `${s.pagesFailed} failed` : "all scanned"} subTone={s.pagesFailed ? "red" : "green"} icon={FileText} tint="violet"
               chart={<Bars values={okPages.map((p) => p.seo?.wordCount || 0)} labels={okPages.map((p) => `${pathOf(p.url)}: ${p.seo?.wordCount ?? 0} words`)} />}
@@ -405,22 +408,7 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
       {view === "screenshots" && (
         <div className="grid gap-5">
           {!okPages.some((p) => p.screenshot) && <NoShots />}
-          {home?.mobileScreenshot && (
-            <Card title="Homepage: desktop vs mobile" icon={ImageIcon}>
-              <div className="grid gap-4 md:grid-cols-[1fr_240px]">
-                <img loading="lazy" decoding="async" src={home.screenshot} alt="desktop" className="max-h-[600px] w-full rounded-xl border border-slate-200 object-cover object-top dark:border-white/10" />
-                <img loading="lazy" decoding="async" src={home.mobileScreenshot} alt="mobile" className="w-full rounded-xl border border-slate-200 dark:border-white/10" />
-              </div>
-            </Card>
-          )}
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {okPages.filter((p) => p.screenshot).map((p) => (
-              <a key={p.url} href={p.screenshot} download={`${hostOf(p.url)}${pathOf(p.url).replace(/\W+/g, "-")}.jpg`} className={`${card} block overflow-hidden`} title="Download screenshot">
-                <img loading="lazy" decoding="async" src={p.screenshot} alt="" className="aspect-[4/3] w-full object-cover object-top" />
-                <div className="p-3"><div className="truncate text-sm font-medium">{p.seo?.title || pathOf(p.url)}</div><div className={`truncate text-xs ${muted}`}>{pathOf(p.url)}</div></div>
-              </a>
-            ))}
-          </div>
+          <ScreenshotGallery pages={pages} />
         </div>
       )}
 
@@ -522,6 +510,37 @@ function Favicon({ srcs }: { srcs: string[] }) {
   const [i, setI] = useState(0);
   if (i >= srcs.length) return <Globe size={22} className="text-indigo-500" />;
   return <img src={srcs[i]} alt="" className="h-7 w-7 object-contain" onError={() => setI((x) => x + 1)} />;
+}
+
+/** "About this website": one line when closed, full AI description when expanded. */
+function AboutCard({ ai, busy }: { ai: AiResult | null; busy: boolean }) {
+  const [open, setOpen] = useState(false);
+  const a = ai?.about;
+  return (
+    <section data-anim="card" className={`${card} overflow-hidden`}>
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 p-5 text-left" aria-expanded={open}>
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/25"><Info size={20} /></div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 font-semibold">About this website {a?.whatItIs && <Badge tone="violet">{a.whatItIs}</Badge>}</div>
+          <div className={`text-sm ${muted} ${open ? "" : "line-clamp-1"}`}>{a ? a.summary : busy ? "The AI is reading the website…" : "Not available."}</div>
+        </div>
+        <ChevronDown size={20} className={`shrink-0 text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+      </button>
+      <div className={`grid transition-[grid-template-rows] duration-300 ${open && a ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div className="overflow-hidden">
+          {a && (
+            <div className="grid gap-4 border-t border-slate-100 p-5 text-sm sm:grid-cols-2 dark:border-white/5">
+              <div><div className={`mb-1 text-xs font-semibold uppercase tracking-wide ${muted}`}>Who it&apos;s for</div>{a.audience}</div>
+              <div><div className={`mb-1 text-xs font-semibold uppercase tracking-wide ${muted}`}>Brand tone</div>{a.tone}</div>
+              <div><div className={`mb-1 text-xs font-semibold uppercase tracking-wide ${muted}`}>Main action for visitors</div>{a.mainAction}</div>
+              {a.offerings?.length > 0 && <div><div className={`mb-1.5 text-xs font-semibold uppercase tracking-wide ${muted}`}>What it offers</div><div className="flex flex-wrap gap-1.5">{a.offerings.map((o) => <Badge key={o} tone="blue">{o}</Badge>)}</div></div>}
+              {a.sections?.length > 0 && <div className="sm:col-span-2"><div className={`mb-1.5 text-xs font-semibold uppercase tracking-wide ${muted}`}>Main sections</div><div className="flex flex-wrap gap-1.5">{a.sections.map((o) => <Badge key={o}>{o}</Badge>)}</div></div>}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 /** Number that GSAP counts up from 0. */

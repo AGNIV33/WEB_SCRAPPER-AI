@@ -3,6 +3,13 @@
 All dates 2026-11-21. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- **Real media extraction**: every image/GIF/video the browser downloads is captured (carousel slides, hero videos, lazy images), labelled by real file type, with sizes; video thumbnails from the video itself. New GIF filter.
+- **Full-screen viewer** (Lightbox) with Download for every screenshot and media file; Screenshots page has View/Download per item + ZIP of all.
+- **Collapsible sidebar** (button next to the logo; remembered).
+- **About this website** expandable card on Overview (AI: what it is, audience, offerings, sections, tone, main action; fallback from page titles).
+- **design.md**: quick brief, homepage anatomy, component specs with states, responsive rules, accessibility checklist, ready-to-paste AI prompt, starter HTML + CSS.
+- **PDF redesigned**: formal navy layout, cover with key figures, executive summary, running header/footer, flowing sections (no forced page breaks), screenshots cropped to fit the space, real tables in the design.md appendix, signed sign-off.
+- **Creator signature** (Agniv Sarkar) in the sidebar, PDF, HTML, Markdown, Excel and design.md.
 - **Media downloader**: every scan collects images (largest srcset), picture sources, CSS backgrounds, inline SVGs, videos, audio, icons and og:image. New **Media** page: filter by type, hide tiny images, preview, download one file or a ZIP of the selection. Files go through `/api/media` (SSRF-safe proxy, 4 MB limit, rate limited); bigger files open from the original site.
 - **Rate limiting** on all API routes (per IP per hour + 300 AI runs/day for the whole app). On automatically on Vercel; optional Upstash Redis. Discover route now also bundles Chromium on Vercel (needed for JavaScript-only sites).
 - **Match the website's theme** (Settings, on by default): the dashboard re-colours itself with the analysed site's accent colours (overrides Tailwind's indigo/violet CSS variables), uses the site's background tint, and follows its light/dark look until you press the theme button. Text stays readable.

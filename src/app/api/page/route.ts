@@ -43,6 +43,21 @@ export async function POST(req: Request) {
     const failed: string[] = [];
     page.on("requestfailed", (r) => { if (failed.length < 30) failed.push(r.url()); });
 
+    // Every image / GIF / video the browser actually downloads (also carousel slides, lazy images,
+    // hero videos and CSS images that the page HTML doesn't list directly).
+    const netMedia = new Map<string, { mime: string; size: number }>();
+    page.on("response", (res) => {
+      try {
+        const t = res.request().resourceType();
+        if (t !== "image" && t !== "media") return;
+        const url = res.url();
+        if (url.startsWith("data:") || netMedia.size >= 300) return;
+        const mime = (res.headers()["content-type"] || "").split(";")[0].trim();
+        const size = Number(res.headers()["content-length"] || 0);
+        netMedia.set(url.split("#")[0], { mime, size });
+      } catch { /* ignore */ }
+    });
+
     const t0 = Date.now();
     const resp = await page.goto(target.toString(), { waitUntil: "networkidle2", timeout: 30000 }).catch(async (e) => {
       // fall back: page may never be "idle" (websockets, polling)
@@ -84,6 +99,30 @@ export async function POST(req: Request) {
       await page.setViewport({ width: 390, height: 844, isMobile: true, deviceScaleFactor: 1, hasTouch: true });
       await new Promise((r) => setTimeout(r, 500));
       mobileShot = (await page.screenshot({ type: "jpeg", quality: 60, encoding: "base64" })) as string;
+    }
+
+    // Merge network media into the page's media list; label GIFs, videos and SVGs by their real file type
+    {
+      type M = { url: string; type: string; w?: number | null; h?: number | null; size?: number; mime?: string; source?: string };
+      const list = ((data as unknown as { media?: M[] }).media || []) as M[];
+      const byUrl = new Map(list.map((m) => [m.url, m]));
+      for (const [url, info] of netMedia) {
+        const isGif = info.mime === "image/gif" || /\.gif(\?|$)/i.test(url);
+        const isVideo = info.mime.startsWith("video/") || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url);
+        const isAudio = info.mime.startsWith("audio/");
+        const isSvg = info.mime === "image/svg+xml" || /\.svg(\?|$)/i.test(url);
+        const existing = byUrl.get(url);
+        if (existing) {
+          existing.size = info.size || existing.size; existing.mime = info.mime;
+          if (isGif) existing.type = "gif";
+          continue;
+        }
+        if (!isVideo && !isAudio && !isSvg && info.size > 0 && info.size < 1500) continue; // tracking pixels / spacers
+        const m: M = { url, type: isVideo ? "video" : isAudio ? "audio" : isGif ? "gif" : isSvg ? "svg" : "image", size: info.size || undefined, mime: info.mime, source: "network" };
+        list.push(m); byUrl.set(url, m);
+      }
+      for (const m of list) if (m.type === "image" && /\.gif(\?|$)/i.test(m.url)) m.type = "gif";
+      (data as unknown as { media: M[] }).media = list.slice(0, 400);
     }
 
     const cookies = await page.cookies().catch(() => []);

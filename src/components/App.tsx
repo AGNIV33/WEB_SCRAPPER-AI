@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film,
+  Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
@@ -54,6 +54,7 @@ const NAV: { id: View; label: string; icon: React.ElementType }[] = [
 
 export default function App() {
   const { settings, update: updateSettings, reset: resetSettings } = useSettings();
+  const mini = settings.sidebarCollapsed;
   const [url, setUrl] = useState("");
   const [limit, setLimit] = useState(() => readSettings().defaultPages);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -182,7 +183,7 @@ export default function App() {
       setSummary(s);
 
       setPhase("ai"); say("Writing suggestions and design.md…");
-      const aiRes = await post<AiResult>("/api/ai", { summary: s, textSample: results[0]?.textSample, screenshot: results.find((r) => r.screenshot)?.screenshot }).catch((e) => ({ ai: false, error: e.message, suggestions: [], designMd: "" }) as AiResult);
+      const aiRes = await post<AiResult>("/api/ai", { summary: s, textSample: results[0]?.textSample, screenshot: results.find((r) => r.screenshot)?.screenshot, pagesInfo: results.filter((r) => !r.error).slice(0, 15).map((r) => ({ url: r.url, title: r.seo?.title, description: r.seo?.description, h1: r.seo?.h1.slice(0, 3), h2: r.seo?.h2.slice(0, 6) })) }).catch((e) => ({ ai: false, error: e.message, suggestions: [], designMd: "" }) as AiResult);
       setAi(aiRes);
       const seconds = (Date.now() - t0.getTime()) / 1000;
       setMeta({ startedAt: t0, seconds });
@@ -235,29 +236,40 @@ export default function App() {
         <SiteBackground shot={homeShot} blur={settings.bgBlur} strength={settings.bgStrength} />
       )}
       {/* Sidebar */}
-      <aside className={`glass-panel fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200/70 bg-white px-4 py-6 transition-transform dark:border-white/10 dark:bg-[#12121f] lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="mb-8 flex items-center gap-3 px-2">
+      {/* Sidebar: full (w-64) or minimised to icons (w-20) on large screens; slide-in drawer on small screens */}
+      <aside className={`glass-panel fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200/70 bg-white py-6 transition-all duration-300 dark:border-white/10 dark:bg-[#12121f] lg:translate-x-0 ${mini ? "px-4 lg:w-20 lg:px-3" : "px-4"} ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className={`mb-6 flex items-center gap-3 px-2 ${mini ? "lg:flex-col lg:px-0" : ""}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mark.svg" alt="" className="h-10 w-10" />
-          <div><div className="text-lg font-bold leading-tight tracking-tight"><span className="text-[#1e1b4b] dark:text-white">Scrapper</span> <span className="text-violet-500">AI</span></div><div className="text-xs text-slate-500 dark:text-slate-400">Website Analyzer</div></div>
+          <img src="/logo-mark.svg" alt="Scrapper AI" className="h-10 w-10 shrink-0" />
+          <div className={mini ? "lg:hidden" : ""}><div className="text-lg font-bold leading-tight tracking-tight"><span className="text-[#1e1b4b] dark:text-white">Scrapper</span> <span className="text-violet-500">AI</span></div><div className="text-xs text-slate-500 dark:text-slate-400">Website Analyzer</div></div>
           <button className="ml-auto lg:hidden" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={18} /></button>
+          <button onClick={() => updateSettings({ sidebarCollapsed: !mini })} aria-label={mini ? "Expand sidebar" : "Minimise sidebar"} title={mini ? "Expand sidebar" : "Minimise sidebar"}
+            className={`hidden h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/5 lg:grid ${mini ? "" : "ml-auto"}`}>
+            {mini ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
           {NAV.map(({ id, label, icon: Icon }) => (
-            <button key={id} onClick={() => { setView(id); setMenuOpen(false); }}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${view === id ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/25" : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"}`}>
-              <Icon size={18} /> {label}
+            <button key={id} onClick={() => { setView(id); setMenuOpen(false); }} title={mini ? label : undefined}
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${mini ? "lg:justify-center lg:px-0" : ""} ${view === id ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/25" : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"}`}>
+              <Icon size={18} className="shrink-0" /> <span className={mini ? "lg:hidden" : ""}>{label}</span>
             </button>
           ))}
         </nav>
-        <div className="mt-4 rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-100 p-4 dark:from-indigo-500/15 dark:to-violet-500/15">
+        <div className={`mt-4 rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-100 p-4 dark:from-indigo-500/15 dark:to-violet-500/15 ${mini ? "lg:hidden" : ""}`}>
           <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-indigo-700 dark:text-indigo-300"><Sparkles size={16} /> AI-Powered Analysis</div>
           <div className="text-xs text-slate-600 dark:text-slate-400">Design · Content · Code · UX</div>
         </div>
+        {/* Creator signature */}
+        <div className={`mt-3 px-2 text-center ${mini ? "lg:hidden" : ""}`}>
+          <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Crafted by</div>
+          <div className="font-signature text-2xl leading-tight text-indigo-600 dark:text-indigo-300">Agniv Sarkar</div>
+        </div>
+        {mini && <div className="font-signature mt-3 hidden text-center text-xl text-indigo-600 dark:text-indigo-300 lg:block" title="Crafted by Agniv Sarkar">AS</div>}
       </aside>
       {menuOpen && <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setMenuOpen(false)} />}
 
-      <div className="relative z-10 lg:pl-64">
+      <div className={`relative z-10 transition-[padding] duration-300 ${mini ? "lg:pl-20" : "lg:pl-64"}`}>
         {/* Top bar */}
         <header className="glass-panel sticky top-0 z-20 border-b border-slate-200/60 bg-white/95 dark:border-white/10 dark:bg-[#0d0d17]/95">
           <form ref={formRef} onSubmit={run} className="flex flex-wrap items-center gap-3 px-4 py-3 md:px-8">

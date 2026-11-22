@@ -26,7 +26,16 @@ export function buildDesignMd(s: Summary) {
 
   push(`# Design System: ${host}`, "");
   push(`> Auto-extracted from **${s.pagesAnalyzed} page(s)** of ${s.url} by Scrapper AI.`, "> Values are measured from the live site (computed styles). Items marked *(suggested)* are recommendations.", "");
-  push("## Contents", "", "1. Overview", "2. Color palette", "3. Typography", "4. Spacing & layout", "5. Shape: radius, borders, shadows", "6. Components", "7. Motion & animation", "8. Iconography & imagery", "9. Accessibility", "10. Design tokens (CSS)", "11. Tailwind config", "12. Do's and don'ts", "13. Tech stack", "");
+  // A short brief first, so a developer or an AI model (Claude, GPT…) gets the whole idea in 10 seconds.
+  const pBtn = d?.buttons[0];
+  push("## Quick brief (read this first)", "");
+  push(`Recreate the look of **${host}**: a ${isDark ? "dark" : "light"} interface on \`${bg}\` with \`${fg}\` text, set in **${fam[0]?.value || "a sans-serif"}**${fam[1] ? ` with **${fam[1].value}** as secondary font` : ""}. ` +
+    `The accent colour is \`${accent}\`${accent2 ? ` (second accent \`${accent2}\`)` : ""}, used for buttons, links and highlights. ` +
+    `${d ? `Spacing follows a ${d.spacingBase ? `${d.spacingBase}px` : "4px"} grid, content is ${d.maxWidths[0]?.value ? `at most ${d.maxWidths[0].value} wide` : "full width"}, corners are ${topRadius || "square"} and the design uses ${d.shadows.length ? "soft shadows" : "no shadows (flat)"}. ` : ""}` +
+    `${pBtn ? `Primary buttons: ${pBtn.bgImage ? "gradient" : `\`${pBtn.bg ?? "transparent"}\``} background, \`${pBtn.color}\` text, ${pBtn.radius} radius, ${pBtn.padding} padding, ${pBtn.fontSize}/${pBtn.fontWeight}. ` : ""}` +
+    `Motion: ${s.animations.libraries.length ? s.animations.libraries.map((l) => l.name).join(", ") : "CSS transitions only"}.`);
+  push("", "**How to use this file:** give it to a developer or paste it into an AI assistant with: *\"Build a page using this design.md. Use exactly these colours, fonts, sizes, spacing and component styles.\"* The CSS tokens (section 10), the Tailwind config (section 11) and the starter code (section 14) can be copied directly.", "");
+  push("## Contents", "", "1. Overview", "2. Color palette", "3. Typography", "4. Spacing & layout", "5. Shape: radius, borders, shadows", "6. Components", "7. Motion & animation", "8. Iconography & imagery", "9. Accessibility", "10. Design tokens (CSS)", "11. Tailwind config", "12. Do's and don'ts", "13. Tech stack", "14. Starter code (HTML + CSS)", "");
 
   // 1
   push("## 1. Overview", "");
@@ -97,7 +106,7 @@ export function buildDesignMd(s: Summary) {
     push("## 6. Components", "");
     if (d.buttons.length) {
       push("### Buttons", "", "| Label | Background | Text | Border | Radius | Padding | Font | Height | Shadow |", "|---|---|---|---|---|---|---|---|---|");
-      d.buttons.forEach((b) => push(`| ${b.text.replace(/\|/g, "/")} | ${b.bgImage ? "gradient" : `\`${b.bg ?? "transparent"}\``} | \`${b.color}\` | ${b.border} | ${b.radius} | ${b.padding} | ${b.fontSize} / ${b.fontWeight} | ${b.height} | ${b.shadow ? "yes" : "no"} |`));
+      d.buttons.forEach((b) => push(`| ${b.text.replace(/\s+/g, " ").replace(/\|/g, "/")} | ${b.bgImage ? "gradient" : `\`${b.bg ?? "transparent"}\``} | \`${b.color}\` | ${b.border} | ${b.radius} | ${b.padding} | ${b.fontSize} / ${b.fontWeight} | ${b.height} | ${b.shadow ? "yes" : "no"} |`));
       const pb = d.buttons[0];
       push("", "**Primary button CSS:**", "", "```css", ".btn-primary {", `  background: ${pb.bgImage || pb.bg || "transparent"};`, `  color: ${pb.color};`, `  border: ${pb.border};`, `  border-radius: ${pb.radius};`, `  padding: ${pb.padding};`, `  font-size: ${pb.fontSize};`, `  font-weight: ${pb.fontWeight};`);
       if (pb.shadow) push(`  box-shadow: ${pb.shadow};`);
@@ -176,6 +185,33 @@ export function buildDesignMd(s: Summary) {
   push("- ❌ Don't invent new colours outside this palette.", "");
 
   // 13
-  push("## 13. Tech stack", "", ...(s.tech.length ? s.tech.map((t) => `- ${t.name}${t.version ? ` ${t.version}` : ""}`) : ["- Nothing detected"]), ...s.hosting.map((x) => `- ${x}`));
+  push("## 13. Tech stack", "", ...(s.tech.length ? s.tech.map((t) => `- ${t.name}${t.version ? ` ${t.version}` : ""}`) : ["- Nothing detected"]), ...s.hosting.map((x) => `- ${x}`), "");
+
+  // 14. Starter code: real CSS + HTML using the measured values, ready to copy
+  const ts = d?.textStyles || {};
+  const tsCss = (sel: string, t?: { font: string; size: string; weight: string; lineHeight: string; letterSpacing: string; color: string | null; transform: string | null }) =>
+    t ? [`${sel} {`, `  font-size: ${rem(t.size)}; /* ${t.size} */`, `  font-weight: ${t.weight};`, `  line-height: ${t.lineHeight};`, ...(t.letterSpacing !== "normal" ? [`  letter-spacing: ${t.letterSpacing};`] : []), ...(t.color ? [`  color: ${t.color};`] : []), ...(t.transform ? [`  text-transform: ${t.transform};`] : []), "}"] : [];
+  const card0 = d?.cards[0];
+  const pad = d?.spacing.find((x) => parseFloat(x.value) >= 16)?.value || "16px";
+  const gfonts = fam.slice(0, 2).map((f) => f.value).filter((f) => !/system|arial|helvetica|segoe|times|georgia|sans-serif|serif/i.test(f));
+  push("## 14. Starter code (HTML + CSS)", "");
+  if (gfonts.length) push(`Fonts: if **${gfonts.join("** / **")}** are not available, load them (e.g. from Google Fonts if they exist there) or use the fallback stack below.`, "");
+  push("```css", "/* Base styles built from the measured design */", ":root { color-scheme: " + (isDark ? "dark" : "light") + "; }", "body {", `  margin: 0;`, `  background: ${bg};`, `  color: ${fg};`, `  font-family: ${stack};`,
+    ...(ts.p ? [`  font-size: ${rem(ts.p.size)};`, `  line-height: ${ts.p.lineHeight};`] : []), "}",
+    ...(["h1", "h2", "h3", "h4", "h5", "h6"] as const).flatMap((h) => tsCss(h, ts[h])),
+    `a { color: ${d?.link?.color || accent}; text-decoration: ${d?.link?.decoration || "none"}; }`,
+    `.container { max-width: ${d?.maxWidths[0]?.value || "1200px"}; margin: 0 auto; padding: 0 ${pad}; }`,
+    ".btn {", `  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;`,
+    `  background: ${pBtn?.bgImage || pBtn?.bg || accent};`, `  color: ${pBtn?.color || "#ffffff"};`, `  border: ${pBtn?.border && pBtn.border !== "none" ? pBtn.border : "0"};`,
+    `  border-radius: ${pBtn?.radius || topRadius || "8px"};`, `  padding: ${pBtn?.padding || "10px 20px"};`, `  font: ${pBtn?.fontWeight || 600} ${pBtn?.fontSize || "16px"}/1 inherit;`,
+    `  transition: ${pBtn?.transition || "all .2s ease"};`, "}", ".btn:hover { filter: brightness(1.08); }", `.btn:focus-visible { outline: 2px solid ${accent}; outline-offset: 2px; }`,
+    ".card {", `  background: ${card0?.bg || surface};`, `  border-radius: ${card0?.radius || topRadius || "12px"};`, `  padding: ${card0?.padding && card0.padding !== "0px" ? card0.padding : pad};`,
+    ...(card0?.border ? [`  border: ${card0.border};`] : border ? [`  border: 1px solid ${border};`] : []), ...(card0?.shadow ? [`  box-shadow: ${card0.shadow};`] : d?.shadows[0] ? [`  box-shadow: ${d.shadows[0].value};`] : []), "}",
+    "```", "");
+  push("```html", "<!-- Example section using the classes above -->", "<header class=\"container\" style=\"display:flex;align-items:center;justify-content:space-between;padding-block:20px\">",
+    `  <strong>${host}</strong>`, "  <nav style=\"display:flex;gap:24px\"><a href=\"#\">Products</a><a href=\"#\">About</a><a href=\"#\">Contact</a></nav>", "</header>",
+    "<main class=\"container\">", "  <section style=\"padding-block:80px\">", "    <h1>Your main headline</h1>", "    <p>Short supporting paragraph in the body style.</p>",
+    `    <a class="btn" href="#">${pBtn?.text || "Get started"}</a>`, "  </section>", "  <div style=\"display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:" + pad + "\">",
+    "    <article class=\"card\"><h3>Card title</h3><p>Card text.</p></article>", "    <article class=\"card\"><h3>Card title</h3><p>Card text.</p></article>", "  </div>", "</main>", "```");
   return L.join("\n");
 }

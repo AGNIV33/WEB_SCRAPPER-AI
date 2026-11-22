@@ -11,9 +11,10 @@ export type Settings = {
   bgStrength: number;      // %, 10–100 (how visible the site background is)
   motion: boolean;         // GSAP animations
   defaultPages: number;    // default crawl limit
+  sidebarCollapsed: boolean; // sidebar minimised to icons
 };
 
-export const DEFAULTS: Settings = { theme: "light", glass: false, siteBackground: true, siteTheme: true, bgBlur: 6, bgStrength: 70, motion: true, defaultPages: 6 };
+export const DEFAULTS: Settings = { theme: "light", glass: false, siteBackground: true, siteTheme: true, bgBlur: 6, bgStrength: 70, motion: true, defaultPages: 6, sidebarCollapsed: false };
 const KEY = "settings";
 
 export function readSettings(): Settings {

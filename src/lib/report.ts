@@ -1,7 +1,7 @@
 /* Shared types + helpers that turn raw page results into one site summary. Pure TS (runs on client and server). */
 
 export type Entry = [string, number];
-export type MediaItem = { url: string; type: "image" | "svg" | "background" | "video" | "audio" | "icon"; w?: number | null; h?: number | null; alt?: string; poster?: string | null; inline?: boolean };
+export type MediaItem = { url: string; type: "image" | "gif" | "svg" | "background" | "video" | "audio" | "icon"; w?: number | null; h?: number | null; alt?: string; poster?: string | null; inline?: boolean; size?: number; mime?: string; source?: string };
 type TextStyle = { font: string; size: string; weight: string; lineHeight: string; letterSpacing: string; color: string | null; transform: string | null };
 type ButtonStyle = { text: string; bg: string | null; bgImage: string | null; color: string | null; border: string; radius: string; padding: string; fontSize: string; fontWeight: string; shadow: string | null; transition: string | null; height: string };
 type BlockStyle = { bg: string | null; height: string; position: string; shadow: string | null; borderBottom: string | null; backdrop: string | null; links: number } | null;
