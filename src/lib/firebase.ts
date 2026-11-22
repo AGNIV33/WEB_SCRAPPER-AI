@@ -14,7 +14,8 @@ const config = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-export const authEnabled = !!(config.apiKey && config.authDomain && config.projectId && config.appId);
+// NEXT_PUBLIC_DISABLE_AUTH=1 turns accounts off (handy for local testing): everything unlocked, no login.
+export const authEnabled = process.env.NEXT_PUBLIC_DISABLE_AUTH !== "1" && !!(config.apiKey && config.authDomain && config.projectId && config.appId);
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;

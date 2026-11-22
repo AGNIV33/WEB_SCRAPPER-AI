@@ -5,7 +5,7 @@ import { Copy, Check, Download, Archive, Braces, Component } from "lucide-react"
 import type { Summary } from "@/lib/report";
 import { componentFiles, tokenFiles, type GenFile } from "@/lib/codegen";
 
-const card = "glass-panel rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
+const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
 
 function save(name: string, text: string) {
   const a = document.createElement("a");

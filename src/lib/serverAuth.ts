@@ -23,7 +23,7 @@ export async function getCaller(req: Request): Promise<Caller> {
 }
 
 /** True when login is set up for this deployment (otherwise everyone gets full access, as before). */
-export const authConfigured = () => !!projectId;
+export const authConfigured = () => !!projectId && process.env.NEXT_PUBLIC_DISABLE_AUTH !== "1";
 
 // ---- Plan limits (also shown in the UI) ----
 export const LIMITS = {

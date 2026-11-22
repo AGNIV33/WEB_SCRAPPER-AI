@@ -47,7 +47,7 @@ function NoShots({ compact }: { compact?: boolean }) {
 }
 
 /* ---------- small UI pieces ---------- */
-const card = "glass-panel rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a] dark:shadow-none";
+const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a] dark:shadow-none";
 const muted = "text-slate-500 dark:text-slate-400";
 
 function Card({ title, icon: Icon, right, children, className = "", onMore }: { title?: string; icon?: React.ElementType; right?: React.ReactNode; children: React.ReactNode; className?: string; onMore?: () => void }) {
@@ -533,7 +533,7 @@ function AboutCard({ ai, busy }: { ai: AiResult | null; busy: boolean }) {
       <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 p-5 text-left" aria-expanded={open}>
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/25"><Info size={20} /></div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 font-semibold">About this website {a?.whatItIs && <Badge tone="violet">{a.whatItIs}</Badge>}</div>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-semibold"><span className="whitespace-nowrap">About this website</span> {a?.whatItIs && <span className="max-w-full truncate rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">{a.whatItIs}</span>}</div>
           <div className={`text-sm ${muted} ${open ? "" : "line-clamp-1"}`}>{a ? a.summary : busy ? "The AI is reading the website…" : "Not available."}</div>
         </div>
         <ChevronDown size={20} className={`shrink-0 text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`} />

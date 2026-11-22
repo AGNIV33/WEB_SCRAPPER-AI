@@ -20,7 +20,7 @@ export default function HistoryView({ loggedIn, onLogin, onOpen, refreshKey }: {
     return () => { live = false; };
   }, [loggedIn, refreshKey, reload]);
 
-  const card = "glass-panel rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
+  const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
 
   if (!loggedIn) {
     return (

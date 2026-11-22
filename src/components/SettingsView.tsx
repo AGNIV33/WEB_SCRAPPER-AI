@@ -3,7 +3,7 @@
 import { Settings as SettingsIcon, Palette, Sun, Moon, Monitor, Sparkles, Image as ImageIcon, Wand2, Gauge, RotateCcw, Check } from "lucide-react";
 import type { Settings } from "@/lib/settings";
 
-const card = "glass-panel rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
+const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
 const muted = "text-slate-500 dark:text-slate-400";
 
 function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {

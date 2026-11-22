@@ -298,8 +298,12 @@ export default function App() {
       <div className={`relative z-10 transition-[padding] duration-300 ${mini ? "lg:pl-20" : "lg:pl-64"}`}>
         {/* Top bar */}
         <header className="glass-panel sticky top-0 z-20 border-b border-slate-200/60 bg-white/95 dark:border-white/10 dark:bg-[#0d0d17]/95">
-          <form ref={formRef} onSubmit={run} className="flex flex-wrap items-center gap-3 px-4 py-3 md:px-8">
+          <form ref={formRef} onSubmit={run} className="flex flex-wrap items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 md:px-8">
             <button type="button" className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={22} /></button>
+            {/* phone: logo on the first row, URL + Analyze on their own full-width second row */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <span className="flex items-center gap-2 sm:hidden"><img src="/logo-mark.svg" alt="" className="h-7 w-7" /><span className="text-sm font-bold"><span className="text-[#1e1b4b] dark:text-white">Scrapper</span> <span className="text-violet-500">AI</span></span></span>
+            <div className="order-last flex w-full min-w-0 gap-2 sm:order-none sm:w-auto sm:flex-1 sm:gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm focus-within:border-indigo-400 dark:border-white/10 dark:bg-white/5">
               <Link2 size={18} className="shrink-0 text-slate-400" />
               <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Enter website URL, e.g. https://example.com" disabled={busy}
@@ -307,12 +311,13 @@ export default function App() {
               {url && !busy && <button type="button" onClick={() => setUrl("")} aria-label="Clear" className="text-slate-400 hover:text-slate-600"><X size={16} /></button>}
             </div>
             {busy ? (
-              <button type="button" onClick={() => (stopRef.current = true)} className="rounded-xl bg-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-200">Stop</button>
+              <button type="button" onClick={() => (stopRef.current = true)} className="shrink-0 rounded-xl bg-slate-200 px-4 py-2.5 sm:px-5 text-sm font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-200">Stop</button>
             ) : (
-              <button className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 hover:opacity-95"><Sparkles size={16} /> Analyze</button>
+              <button className="flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 hover:opacity-95 sm:px-5"><Sparkles size={16} /> Analyze</button>
             )}
+            </div>
             <button type="button" onClick={() => updateSettings({ glass: !settings.glass })} aria-label="Toggle glass mode" title="Glass mode"
-              className={`grid h-10 w-10 place-items-center rounded-xl border ${settings.glass ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-200" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"}`}>
+              className={`ml-auto grid h-10 w-10 shrink-0 place-items-center rounded-xl border sm:ml-0 ${settings.glass ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-200" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"}`}>
               <Droplets size={18} />
             </button>
             <button type="button" onClick={() => { setManualTheme(true); updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }); }} aria-label="Toggle light/dark theme" className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
@@ -332,7 +337,7 @@ export default function App() {
                 )}
               </div>
             ) : (
-              <button type="button" onClick={() => setAuthOpen(true)} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"><LogIn size={16} /> Log in</button>
+              <button type="button" onClick={() => setAuthOpen(true)} aria-label="Log in" className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 sm:px-4 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"><LogIn size={16} /> <span className="hidden sm:inline">Log in</span></button>
             ))}
           </form>
           {busy && phase !== "choose" && (
@@ -352,7 +357,7 @@ export default function App() {
           )}
         </header>
 
-        <main className="px-4 py-6 md:px-8">
+        <main className="px-3 py-5 sm:px-4 sm:py-6 md:px-8">
           {error && <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">{error}</p>}
           {authEnabled && summary && view !== "history" && view !== "settings" && (
             <div className="glass-panel mb-4 flex w-fit items-center gap-2 rounded-full border border-transparent px-3 py-1 text-xs text-slate-500 dark:text-slate-400">
