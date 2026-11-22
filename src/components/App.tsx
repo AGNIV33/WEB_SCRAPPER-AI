@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Bell, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown,
+  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown,
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
@@ -23,6 +23,8 @@ import CompareView from "@/components/CompareView";
 import ChangesView from "@/components/ChangesView";
 import HeroSearch from "@/components/HeroSearch";
 import ThemeToggle from "@/components/ThemeToggle";
+import NotificationBell from "@/components/NotificationBell";
+import { useNotifications } from "@/lib/notify";
 import { loadAnalysis, saveAnalysis } from "@/lib/history";
 
 type View = DashView | "history" | "settings" | "pricing" | "compare" | "changes";
@@ -114,6 +116,7 @@ export default function App() {
   const isLocked = (v: View) => authEnabled && !user && !GUEST_VIEWS.includes(v);
   const [authOpen, setAuthOpen] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
+  const notify = useNotifications(user?.uid ?? null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [historyKey, setHistoryKey] = useState(0);
   const stopRef = useRef(false);
@@ -242,18 +245,26 @@ export default function App() {
       const seconds = (Date.now() - t0.getTime()) / 1000;
       setMeta({ startedAt: t0, seconds });
       setPhase("done"); say("Done.");
+      const host = new URL(disc.root).hostname.replace(/^www\./, "");
+      const okPages = results.filter((r) => !r.error).length;
+      notify.push(stopRef.current
+        ? { kind: "warning", title: `Scan of ${host} stopped`, body: `${okPages} page(s) were analysed before you stopped it.`, view: "overview" }
+        : { kind: "success", title: `${host} is ready`, body: `${okPages} of ${results.length} page(s) analysed in ${Math.round(seconds)}s. Security ${s.security.score}/100, SEO ${s.seoScore}/100.`, view: "overview" });
+      if (okPages < results.length) notify.push({ kind: "warning", title: `${results.length - okPages} page(s) could not be scanned`, body: "They are listed on the Pages screen. Try again later or scan fewer pages.", view: "pages" });
+      if (aiRes.error) notify.push({ kind: "warning", title: "AI suggestions were skipped", body: aiRes.error, view: "suggestions" });
       // Save to history when logged in
       if (user) {
         recordScan(disc.root).then(() => getUsage().then(setUsage)).catch(() => {});
         setSaveState("saving");
         saveAnalysis({ pages: results, site: siteRes.error ? null : siteRes, summary: s, ai: aiRes, seconds })
-          .then(() => { setSaveState("saved"); setHistoryKey((k) => k + 1); })
-          .catch((e) => { setSaveState("error"); setError(`Could not save to history: ${e.message}`); });
+          .then(() => { setSaveState("saved"); setHistoryKey((k) => k + 1); notify.push({ kind: "info", title: "Saved to your history", body: host, view: "history" }); })
+          .catch((e) => { setSaveState("error"); setError(`Could not save to history: ${e.message}`); notify.push({ kind: "error", title: "Could not save to history", body: e.message }); });
       }
     } catch (err) {
       setError((err as Error).message);
       setPhase("idle");
-      if (err instanceof PaywallError) setView("pricing");
+      if (err instanceof PaywallError) { setView("pricing"); notify.push({ kind: "warning", title: "Free plan limit reached", body: (err as Error).message, view: "pricing" }); }
+      else notify.push({ kind: "error", title: "Scan failed", body: (err as Error).message });
     }
   }
 
@@ -370,7 +381,7 @@ export default function App() {
               <span className="tt-sheen" aria-hidden /><Droplets size={18} strokeWidth={2.2} className="tt-icon" />
             </button>
             <span data-tour="theme" className="contents"><ThemeToggle onToggle={() => { updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }); }} /></span>
-            <button type="button" aria-label="Notifications" title="Notifications" className="tt tt-round !hidden sm:!grid"><span className="tt-sheen" aria-hidden /><Bell size={18} strokeWidth={2.2} className="tt-icon" /></button>
+            <NotificationBell notes={notify.notes} unread={notify.unread} markAllRead={notify.markAllRead} remove={notify.remove} clear={notify.clear} onOpenNote={(n) => { if (n.view && !isLocked(n.view as View)) setView(n.view as View); }} />
             {authEnabled && (user ? (
               <div className="relative" data-tour="account">
                 <button type="button" onClick={() => setUserMenu((o) => !o)} aria-label="Account menu"
