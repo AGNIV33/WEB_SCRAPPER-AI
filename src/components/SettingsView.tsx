@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings as SettingsIcon, Palette, Sun, Moon, Monitor, Sparkles, Image as ImageIcon, Wand2, Gauge, RotateCcw, Check } from "lucide-react";
+import { Settings as SettingsIcon, Compass, Palette, Sun, Moon, Monitor, Sparkles, Image as ImageIcon, Wand2, Gauge, RotateCcw, Check } from "lucide-react";
 import type { Settings } from "@/lib/settings";
 
 const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
@@ -25,7 +25,7 @@ function Row({ icon: Icon, title, desc, children }: { icon: React.ElementType; t
   );
 }
 
-export default function SettingsView({ settings: s, update, reset, hasSite }: { settings: Settings; update: (p: Partial<Settings>) => void; reset: () => void; hasSite: boolean }) {
+export default function SettingsView({ settings: s, update, reset, hasSite, onTour }: { settings: Settings; update: (p: Partial<Settings>) => void; reset: () => void; hasSite: boolean; onTour?: () => void }) {
   const themes = [
     { id: "light", label: "Light", icon: Sun },
     { id: "dark", label: "Dark", icon: Moon },
@@ -91,6 +91,14 @@ export default function SettingsView({ settings: s, update, reset, hasSite }: { 
           <Toggle on={s.motion} onChange={(v) => update({ motion: v })} label="Animations" />
         </Row>
       </section>
+
+      {onTour && (
+        <section data-anim="card" className={card}>
+          <Row icon={Compass} title="Quick tour" desc="A short guided tour of the app. Shown once after you sign up; replay it here any time.">
+            <button onClick={onTour} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25"><Compass size={16} /> Start tour</button>
+          </Row>
+        </section>
+      )}
 
       <div>
         <button onClick={reset} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><RotateCcw size={14} /> Reset to defaults</button>

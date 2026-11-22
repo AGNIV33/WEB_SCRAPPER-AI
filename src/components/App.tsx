@@ -14,7 +14,9 @@ import Dashboard, { type AiResult, type View as DashView } from "@/components/Da
 import AuthModal from "@/components/AuthModal";
 import ChoosePages from "@/components/ChoosePages";
 import HistoryView from "@/components/HistoryView";
-import { authEnabled, idToken, logout as fbLogout, onUser, type User } from "@/lib/firebase";
+import { auth, authEnabled, idToken, logout as fbLogout, onUser, type User } from "@/lib/firebase";
+import Greeting from "@/components/Greeting";
+import Tour from "@/components/Tour";
 import { getUsage, recordScan, type Usage } from "@/lib/usage";
 import { LockedView, PricingView } from "@/components/PlanViews";
 import CompareView from "@/components/CompareView";
@@ -105,7 +107,9 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
-  const [avatarBroken, setAvatarBroken] = useState(false); // Google photo failed to load: show the initial instead
+  const [avatarBroken, setAvatarBroken] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const closeTour = useCallback(() => { setTourOpen(false); try { if (auth?.currentUser) localStorage.setItem(`tourDone:${auth.currentUser.uid}`, "1"); } catch { /* ignore */ } }, []); // Google photo failed to load: show the initial instead
   const [guestRun, setGuestRun] = useState(false);
   const isLocked = (v: View) => authEnabled && !user && !GUEST_VIEWS.includes(v);
   const [authOpen, setAuthOpen] = useState(false);
@@ -120,7 +124,15 @@ export default function App() {
 
   // Keep the logged-in user in sync with Firebase Auth
   useEffect(() => {
-    return onUser((u) => { setUser(u); if (u) getUsage().then(setUsage); else setUsage(null); });
+    return onUser((u) => {
+      setUser(u);
+      if (u) getUsage().then(setUsage); else setUsage(null);
+      // Quick tour: once, for accounts created in the last 24 hours
+      try {
+        const isNew = Date.now() - new Date(u?.metadata.creationTime || 0).getTime() < 24 * 3600 * 1000;
+        if (u && isNew && !localStorage.getItem(`tourDone:${u.uid}`)) setTimeout(() => setTourOpen(true), 900);
+      } catch { /* ignore */ }
+    });
   }, []);
 
   async function openFromHistory(id: string) {
@@ -292,7 +304,7 @@ export default function App() {
             {mini ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
         </div>
-        <nav className="no-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
+        <nav data-tour="nav" className="no-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
           {NAV_GROUPS.map((g) => {
             // a group is open if the user opened it, or it holds the current page
             const open = !g.title || mini || openGroups.has(g.id) || g.items.some((i) => i.id === view);
@@ -313,7 +325,7 @@ export default function App() {
                 <div className={`grid transition-[grid-template-rows] duration-200 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                   <div className={`flex flex-col gap-0.5 overflow-hidden ${g.title && !mini ? "pl-2" : ""}`}>
                     {g.items.map(({ id, label, icon: Icon }) => (
-                      <button key={id} onClick={() => { setView(id); setMenuOpen(false); }} title={mini ? label : undefined} tabIndex={open ? 0 : -1}
+                      <button key={id} data-tour={id === "settings" ? "settings" : undefined} onClick={() => { setView(id); setMenuOpen(false); }} title={mini ? label : undefined} tabIndex={open ? 0 : -1}
                         className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${mini ? "lg:justify-center lg:px-0" : ""} ${view === id ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/25" : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"}`}>
                         <Icon size={18} className="shrink-0" /> <span className={`flex-1 text-left ${mini ? "lg:hidden" : ""}`}>{label}</span>
                         {isLocked(id) && <Lock size={13} className={`shrink-0 opacity-60 ${mini ? "lg:hidden" : ""}`} />}
@@ -346,7 +358,7 @@ export default function App() {
             {/* phone: logo on the first row, URL + Analyze on their own full-width second row */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <span className="flex items-center gap-2 sm:hidden"><img src="/logo-mark.svg" alt="" className="h-7 w-7" /><span className="text-sm font-bold"><span className="text-[#1e1b4b] dark:text-white">Scrapper</span> <span className="text-violet-500">AI</span></span></span>
-            {!started && <div className="flex-1" />}
+            {!started && <div className="flex min-w-0 flex-1 items-center"><Greeting user={user} /></div>}
             <div className={`order-last flex w-full min-w-0 gap-2 sm:order-none sm:w-auto sm:flex-1 sm:gap-3 ${started ? "animate-[topbar-in_.5s_ease-out]" : "hidden"}`}>
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm focus-within:border-indigo-400 dark:border-white/10 dark:bg-white/5">
               <Link2 size={18} className="shrink-0 text-slate-400" />
@@ -360,14 +372,14 @@ export default function App() {
               <button className="flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 hover:opacity-95 sm:px-5"><Sparkles size={16} /> Analyze</button>
             )}
             </div>
-            <button type="button" onClick={() => updateSettings({ glass: !settings.glass })} aria-label="Toggle glass mode" title="Glass mode"
+            <button type="button" data-tour="glass" onClick={() => updateSettings({ glass: !settings.glass })} aria-label="Toggle glass mode" title="Glass mode"
               className={`ml-auto grid h-10 w-10 shrink-0 place-items-center rounded-xl border sm:ml-0 ${settings.glass ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-200" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"}`}>
               <Droplets size={18} />
             </button>
-            <ThemeToggle onToggle={() => { setManualTheme(true); updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }); }} />
+            <span data-tour="theme" className="contents"><ThemeToggle onToggle={() => { setManualTheme(true); updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }); }} /></span>
             <button type="button" aria-label="Notifications" className="hidden h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 sm:grid dark:border-white/10 dark:bg-white/5 dark:text-slate-300"><Bell size={18} /></button>
             {authEnabled && (user ? (
-              <div className="relative">
+              <div className="relative" data-tour="account">
                 <button type="button" onClick={() => setUserMenu((o) => !o)} aria-label="Account menu"
                   className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-sm font-semibold uppercase text-white ring-2 ring-white shadow dark:ring-white/10">
                   {user.photoURL && !avatarBroken
@@ -393,7 +405,7 @@ export default function App() {
                 )}
               </div>
             ) : (
-              <button type="button" onClick={() => setAuthOpen(true)} aria-label="Log in" className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 sm:px-4 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"><LogIn size={16} /> <span className="hidden sm:inline">Log in</span></button>
+              <button type="button" data-tour="account" onClick={() => setAuthOpen(true)} aria-label="Log in" className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 sm:px-4 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"><LogIn size={16} /> <span className="hidden sm:inline">Log in</span></button>
             ))}
           </form>
           {busy && phase !== "choose" && (
@@ -426,7 +438,7 @@ export default function App() {
           {isLocked(view)
             ? <LockedView onLogin={() => setAuthOpen(true)} />
             : view === "settings"
-            ? <SettingsView settings={settings} update={updateSettings} reset={resetSettings} hasSite={pages.some((p) => p.screenshot)} />
+            ? <SettingsView settings={settings} update={updateSettings} reset={resetSettings} hasSite={pages.some((p) => p.screenshot)} onTour={() => { setView("overview"); setTimeout(() => setTourOpen(true), 300); }} />
             : view === "pricing"
             ? <PricingView usage={usage} loggedIn={!!user} onLogin={() => setAuthOpen(true)} />
             : view === "history"
@@ -441,6 +453,7 @@ export default function App() {
         </main>
       </div>
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      <Tour open={tourOpen} onClose={closeTour} />
       {chooser && (
         <ChoosePages host={new URL(chooser.disc.root).hostname} total={chooser.disc.total} atLeast={chooser.disc.atLeast} max={chooser.disc.maxAnalyze}
           initial={limit} estimate={estimateSeconds} fmt={fmtDuration} onStart={(n) => chooser.resolve(n)} onCancel={() => chooser.resolve(null)} />

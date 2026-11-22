@@ -116,3 +116,6 @@ body {
   50% { filter: drop-shadow(0 0 3px rgba(191, 219, 254, 1)) drop-shadow(0 0 11px rgba(96, 165, 250, 0.9)) drop-shadow(0 0 22px rgba(59, 130, 246, 0.55)); }
 }
 .no-motion .tt-moon { animation: none; }
+
+/* greeting emoji wave */
+@keyframes wave { 0%,60%,100% { transform: rotate(0) } 10%,30% { transform: rotate(16deg) } 20% { transform: rotate(-8deg) } 40% { transform: rotate(-4deg) } 50% { transform: rotate(10deg) } }

@@ -58,7 +58,7 @@ export default function HeroSearch({ url, setUrl, onStart }: { url: string; setU
         <p className="mt-2 text-slate-500 dark:text-slate-400">Paste a link below. The scan starts as soon as you paste.</p>
       </div>
 
-      <form onSubmit={(e) => { e.preventDefault(); go(url); }} className="relative mt-8 w-full max-w-2xl">
+      <form data-tour="search" onSubmit={(e) => { e.preventDefault(); go(url); }} className="relative mt-8 w-full max-w-2xl">
         <div data-h="glow" className="pointer-events-none absolute -inset-3 rounded-3xl bg-gradient-to-r from-indigo-500/30 via-violet-500/30 to-sky-500/30 opacity-50 blur-2xl" />
         <div data-h="box" className="relative flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 pl-4 shadow-xl shadow-indigo-500/10 focus-within:border-indigo-400 dark:border-white/10 dark:bg-[#16162a]">
           <Link2 size={20} className="shrink-0 text-indigo-500" />
