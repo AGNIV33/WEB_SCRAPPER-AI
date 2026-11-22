@@ -40,6 +40,7 @@ src/
       page/route.ts     Puppeteer: screenshot, EXTRACT_SCRIPT, passive page security, favicon
       site/route.ts     headers, TLS cert, HTTP→HTTPS, robots/sitemap/security.txt, hosting
       links/route.ts    HEAD/GET status checks (max 150, 10 workers)
+      media/route.ts    safe media file proxy (GET)
       ai/route.ts       NVIDIA NIM: suggestions JSON + design notes (vision)
   components/
     App.tsx             shell: sidebar, top bar, crawl orchestration, auth, save
@@ -49,6 +50,7 @@ src/
     SettingsView.tsx    theme, glass mode, background, defaults
     SiteBackground.tsx  glass-mode background from the analysed site
     ExportMenu.tsx      export dropdown
+    MediaView.tsx       media grid + downloads
   lib/
     browser.ts          launches Chrome (local) or sparticuz chromium (Vercel)
     url.ts              normalizeUrl, SSRF guard (assertPublicHost), safeFetch

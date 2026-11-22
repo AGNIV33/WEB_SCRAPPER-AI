@@ -1,6 +1,7 @@
 /* Shared types + helpers that turn raw page results into one site summary. Pure TS (runs on client and server). */
 
 export type Entry = [string, number];
+export type MediaItem = { url: string; type: "image" | "svg" | "background" | "video" | "audio" | "icon"; w?: number | null; h?: number | null; alt?: string; poster?: string | null; inline?: boolean };
 type TextStyle = { font: string; size: string; weight: string; lineHeight: string; letterSpacing: string; color: string | null; transform: string | null };
 type ButtonStyle = { text: string; bg: string | null; bgImage: string | null; color: string | null; border: string; radius: string; padding: string; fontSize: string; fontWeight: string; shadow: string | null; transition: string | null; height: string };
 type BlockStyle = { bg: string | null; height: string; position: string; shadow: string | null; borderBottom: string | null; backdrop: string | null; links: number } | null;
@@ -33,6 +34,7 @@ export type PageResult = {
     h1: string[]; h2: string[]; h3: string[]; wordCount: number; images: number; imagesNoAlt: number; jsonLd: string[];
   };
   links?: { href: string; text: string; blank: boolean; rel: string }[];
+  media?: MediaItem[];
   forms?: { action: string; method: string; hasPassword: boolean }[];
   perf?: { ttfb: number | null; domContentLoaded: number | null; load: number | null; requests: number; transferKB: number; domNodes: number };
   requestsByType?: Record<string, number>;

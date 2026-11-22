@@ -18,6 +18,7 @@ export const EXTRACT_SCRIPT = String.raw`
 
   const bg = {}, text = {}, border = {}, fonts = {}, sizes = {}, weights = {};
   const cssAnimated = []; let transitionEls = 0; const transitionProps = {};
+  const bgUrls = new Map();
   const spacing = {}, radius = {}, shadows = {}, gradients = {}, lineHeights = {}, letterSp = {}, maxWidths = {}, durations = {}, easings = {}, zIndex = {};
   let flexCount = 0, gridCount = 0;
   const cards = [];
@@ -61,6 +62,12 @@ export const EXTRACT_SCRIPT = String.raw`
     }
     if (cs.animationName && cs.animationName !== 'none' && cssAnimated.length < 60) {
       cssAnimated.push({ el: selOf(el), name: cs.animationName, duration: cs.animationDuration, timing: cs.animationTimingFunction, iteration: cs.animationIterationCount });
+    }
+    if (cs.backgroundImage && cs.backgroundImage.includes('url(') && bgUrls.size < 150) {
+      (cs.backgroundImage.match(/url\(["']?([^"')]+)["']?\)/g) || []).forEach((m) => {
+        const u = m.replace(/^url\(["']?|["']?\)$/g, '');
+        if (!u.startsWith('data:') || u.length < 200000) bgUrls.set(u, [Math.round(r.width), Math.round(r.height)]);
+      });
     }
     if (cs.transitionDuration && cs.transitionDuration.split(',').some((d) => parseFloat(d) > 0)) {
       transitionEls++;
@@ -204,6 +211,40 @@ export const EXTRACT_SCRIPT = String.raw`
   const loadedFonts = [];
   try { document.fonts.forEach((f) => { if (f.status === 'loaded') loadedFonts.push(f.family.replace(/["']/g, '') + ' ' + f.weight + (f.style !== 'normal' ? ' ' + f.style : '')); }); } catch {}
 
+  // Media files: images (largest srcset candidate), <picture> sources, CSS backgrounds, inline SVG, video, audio, icons
+  const media = []; const seenMedia = new Set();
+  const abs = (u) => { try { return new URL(u, location.href).href; } catch { return null; } };
+  const addMedia = (url, type, extra) => {
+    const u = url && (url.startsWith('data:') ? url : abs(url));
+    if (!u || seenMedia.has(u) || media.length >= 300) return;
+    if (u.startsWith('data:') && u.length < 120) return; // skip 1px placeholders
+    seenMedia.add(u); media.push(Object.assign({ url: u, type }, extra || {}));
+  };
+  const bestSrc = (srcset) => {
+    let best = null, bw = -1;
+    (srcset || '').split(',').forEach((c) => { const [u, d] = c.trim().split(/\s+/); const w = parseFloat(d) || 1; if (u && w > bw) { bw = w; best = u; } });
+    return best;
+  };
+  document.querySelectorAll('img').forEach((im) => {
+    const src = bestSrc(im.getAttribute('srcset')) || im.currentSrc || im.src || im.getAttribute('data-src');
+    const isSvg = /\.svg(\?|$)/i.test(src || '') || (src || '').startsWith('data:image/svg');
+    addMedia(src, isSvg ? 'svg' : 'image', { w: im.naturalWidth || null, h: im.naturalHeight || null, alt: (im.alt || '').slice(0, 80) });
+  });
+  document.querySelectorAll('picture source[srcset]').forEach((s) => addMedia(bestSrc(s.getAttribute('srcset')), 'image'));
+  bgUrls.forEach((wh, u) => addMedia(u, /\.svg(\?|$)/i.test(u) ? 'svg' : 'background', { w: wh[0], h: wh[1] }));
+  Array.from(document.querySelectorAll('svg')).filter((s) => { const b = s.getBoundingClientRect(); return b.width >= 16 && b.height >= 16 && !s.closest('svg svg'); }).slice(0, 60).forEach((s) => {
+    const xml = s.outerHTML.includes('xmlns=') ? s.outerHTML : s.outerHTML.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+    if (xml.length < 60000) addMedia('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml), 'svg', { w: Math.round(s.getBoundingClientRect().width), h: Math.round(s.getBoundingClientRect().height), inline: true });
+  });
+  document.querySelectorAll('video').forEach((v) => {
+    const src = v.currentSrc || v.src || (v.querySelector('source') || {}).src;
+    if (src && !src.startsWith('blob:')) addMedia(src, 'video', { w: v.videoWidth || null, h: v.videoHeight || null, poster: v.poster ? abs(v.poster) : null });
+    if (v.poster) addMedia(v.poster, 'image');
+  });
+  document.querySelectorAll('audio').forEach((a) => { const src = a.currentSrc || a.src || (a.querySelector('source') || {}).src; if (src && !src.startsWith('blob:')) addMedia(src, 'audio'); });
+  document.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"], link[rel="mask-icon"]').forEach((l) => addMedia(l.href, 'icon'));
+  const ogImg = document.querySelector('meta[property="og:image"]'); if (ogImg) addMedia(ogImg.content, 'image', { alt: 'og:image' });
+
   const top = (o, n) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n);
   return {
     colors: { background: top(bg, 12), text: top(text, 10), border: top(border, 6) },
@@ -232,7 +273,7 @@ export const EXTRACT_SCRIPT = String.raw`
       images: imgs.length, imagesNoAlt: imgs.filter((i) => !i.hasAttribute('alt')).length,
       jsonLd: [...new Set(jsonLd)].slice(0, 15),
     },
-    links, forms,
+    links, forms, media,
     inlineScripts: Array.from(document.scripts).filter((s) => !s.src && s.textContent.trim()).length,
     iframes: Array.from(document.querySelectorAll('iframe')).map((f) => f.src).filter(Boolean).slice(0, 10),
     perf: {

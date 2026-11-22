@@ -10,9 +10,10 @@ import {
 } from "lucide-react";
 gsap.registerPlugin(useGSAP);
 import ExportMenu from "@/components/ExportMenu";
+import MediaView from "@/components/MediaView";
 import { contrast, type PageResult, type SiteResult, type Summary } from "@/lib/report";
 
-export type View = "overview" | "colors" | "fonts" | "pages" | "screenshots" | "animations" | "security" | "suggestions" | "design" | "tech";
+export type View = "overview" | "colors" | "fonts" | "pages" | "screenshots" | "media" | "animations" | "security" | "suggestions" | "design" | "tech";
 export type AiResult = {
   ai: boolean; model?: string; note?: string; error?: string | null;
   suggestions: { area: string; priority: string; title: string; detail: string }[];
@@ -396,6 +397,8 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
       )}
 
       {view === "pages" && <PagesTable pages={pages} full />}
+
+      {view === "media" && <MediaView pages={pages} host={hostOf(home?.finalUrl || pages[0]?.url)} />}
 
       {view === "screenshots" && (
         <div className="grid gap-5">

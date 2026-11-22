@@ -82,6 +82,11 @@ Severity: `high | medium | low | info`.
 
 ---
 
+## GET /api/media?url=...
+Downloads one public media file (image/video/audio/font) so the browser can put it in a ZIP. Blocks private addresses, max 4 MB (Vercel response limit). Errors: `413 {error:"too-large"}`, `415` not media, `502` site error, `429` rate limit (600/hour per IP).
+
+---
+
 ## POST /api/ai
 **Request**
 ```json

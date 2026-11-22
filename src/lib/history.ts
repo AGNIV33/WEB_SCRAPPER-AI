@@ -27,8 +27,10 @@ function col() {
 function compactPages(pages: PageResult[], level: number): PageResult[] {
   return pages.map((p, i) => {
     const x: PageResult = { ...p, screenshot: undefined, mobileScreenshot: undefined, faviconData: undefined };
-    if (level >= 1) { x.links = (p.links || []).slice(0, 50); x.failedRequests = undefined; x.textSample = undefined; }
-    if (level >= 2 && i > 0) { x.design = undefined; x.cssVars = undefined; x.links = []; }
+    // inline SVGs are big data URLs: keep only real file links in history
+    x.media = (p.media || []).filter((m) => !m.url.startsWith("data:")).slice(0, 200);
+    if (level >= 1) { x.links = (p.links || []).slice(0, 50); x.failedRequests = undefined; x.textSample = undefined; x.media = x.media.slice(0, 80); }
+    if (level >= 2 && i > 0) { x.design = undefined; x.cssVars = undefined; x.links = []; x.media = x.media?.slice(0, 20); }
     if (level >= 3 && i > 0) { x.animations = undefined; x.colors = undefined; x.typography = undefined; }
     return x;
   });

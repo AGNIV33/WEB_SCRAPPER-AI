@@ -3,6 +3,7 @@
 All dates 2026-11-21. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- **Media downloader**: every scan collects images (largest srcset), picture sources, CSS backgrounds, inline SVGs, videos, audio, icons and og:image. New **Media** page: filter by type, hide tiny images, preview, download one file or a ZIP of the selection. Files go through `/api/media` (SSRF-safe proxy, 4 MB limit, rate limited); bigger files open from the original site.
 - **Rate limiting** on all API routes (per IP per hour + 300 AI runs/day for the whole app). On automatically on Vercel; optional Upstash Redis. Discover route now also bundles Chromium on Vercel (needed for JavaScript-only sites).
 - **Match the website's theme** (Settings, on by default): the dashboard re-colours itself with the analysed site's accent colours (overrides Tailwind's indigo/violet CSS variables), uses the site's background tint, and follows its light/dark look until you press the theme button. Text stays readable.
 - Glass background is now ONE sharp landing-page screenshot (homepage top), blurred once on a canvas (default 6px), not live. Panels are more opaque so text is always readable. Header and sidebar no longer use backdrop blur outside glass mode (smoother scrolling).

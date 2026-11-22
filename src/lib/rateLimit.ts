@@ -17,6 +17,7 @@ export const RULES = {
   site: { limit: 30, windowSec: 3600 },
   links: { limit: 30, windowSec: 3600 },
   ai: { limit: 15, windowSec: 3600 },
+  media: { limit: 600, windowSec: 3600 }, // media downloads (one call per file)
 } satisfies Record<string, Rule>;
 
 /** Whole-app daily cap on AI calls (all visitors together), to protect the NVIDIA free tier. */

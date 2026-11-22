@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets,
+  Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film,
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
@@ -42,6 +42,7 @@ const NAV: { id: View; label: string; icon: React.ElementType }[] = [
   { id: "fonts", label: "Fonts", icon: Type },
   { id: "pages", label: "Pages", icon: FileText },
   { id: "screenshots", label: "Screenshots", icon: ImageIcon },
+  { id: "media", label: "Media", icon: Film },
   { id: "animations", label: "Animations", icon: Sparkles },
   { id: "security", label: "Security", icon: Shield },
   { id: "suggestions", label: "Suggestions", icon: Lightbulb },
