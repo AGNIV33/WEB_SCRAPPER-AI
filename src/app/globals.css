@@ -15,23 +15,23 @@ body {
   font-family: var(--font-inter), system-ui, sans-serif;
 }
 
-/* App background. --app-bg / --app-glow-* are set from the analysed site's colours (src/lib/siteTheme.ts). */
+/* App background. --app-bg-light / --app-bg-dark / --app-glow-* are set from the analysed site's colours (src/lib/siteTheme.ts). */
 .waves {
   background:
     radial-gradient(1200px 400px at 85% -10%, color-mix(in srgb, var(--app-glow-2, #8b5cf6) 16%, transparent), transparent 60%),
     radial-gradient(900px 380px at 10% 110%, color-mix(in srgb, var(--app-glow-1, #6366f1) 12%, transparent), transparent 60%),
-    var(--app-bg, #f7f6fd);
+    var(--app-bg-light, #f7f6fd);
 }
 .dark .waves {
   background:
     radial-gradient(1200px 400px at 85% -10%, color-mix(in srgb, var(--app-glow-2, #8b5cf6) 18%, transparent), transparent 60%),
     radial-gradient(900px 380px at 10% 110%, color-mix(in srgb, var(--app-glow-1, #6366f1) 12%, transparent), transparent 60%),
-    var(--app-bg, #0d0d17);
+    var(--app-bg-dark, #0d0d17);
 }
 
 /* ---------- Glass mode (glassmorphism) ---------- */
-.glass .waves { background: var(--app-bg, #eef0ff); }
-.dark.glass .waves { background: var(--app-bg, #0a0a16); }
+.glass .waves { background: var(--app-bg-light, #eef0ff); }
+.dark.glass .waves { background: var(--app-bg-dark, #0a0a16); }
 
 /* Panels are mostly opaque so every text stays readable over the site screenshot.
    A small blur keeps the glass look while staying cheap to draw. */

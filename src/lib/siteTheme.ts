@@ -43,13 +43,15 @@ export function buildSiteTheme(s: Summary): SiteTheme | null {
   for (const [k, v] of Object.entries(b)) vars[`--color-violet-${k}`] = v;
   // App background: the site's own background, softened so cards and text stay readable
   const [bh, bs, bl] = hexToHsl(bg);
-  vars["--app-bg"] = dark ? hsl(bh, Math.min(bs, 40), Math.min(bl, 9)) : hsl(bh, Math.min(bs, 50), Math.max(bl, 96));
+  // a tint of the site's background for each mode, so the user's own light/dark choice always applies
+  vars["--app-bg-light"] = hsl(bh, Math.min(bs, 50), Math.max(bl, 96));
+  vars["--app-bg-dark"] = hsl(bh, Math.min(bs, 40), Math.min(bl, 9));
   vars["--app-glow-1"] = a["500"];
   vars["--app-glow-2"] = b["500"];
   return { vars, dark, accent, accent2, bg };
 }
 
-const KEYS = [...STEPS.flatMap(([k]) => [`--color-indigo-${k}`, `--color-violet-${k}`]), "--app-bg", "--app-glow-1", "--app-glow-2"];
+const KEYS = [...STEPS.flatMap(([k]) => [`--color-indigo-${k}`, `--color-violet-${k}`]), "--app-bg-light", "--app-bg-dark", "--app-glow-1", "--app-glow-2"];
 
 /** Applies (or clears, when theme is null) the site theme on <html>. */
 export function applySiteTheme(theme: SiteTheme | null) {

@@ -268,17 +268,10 @@ export default function App() {
   const recrawl = useCallback(() => formRef.current?.requestSubmit(), []);
   // Glass background: ONE landing-page screenshot (the homepage), prepared once in good quality
   const homeShot = useMemo(() => (settings.siteBackground ? pages.find((p) => p.screenshot)?.screenshot || null : null), [pages, settings.siteBackground]);
-  // Dashboard takes on the analysed site's colours (and light/dark) when enabled
+  // Dashboard takes on the analysed site's colours when enabled
   const siteTheme = useMemo(() => (settings.siteTheme && summary ? buildSiteTheme(summary) : null), [summary, settings.siteTheme]);
-  // The site decides light/dark until the user presses the theme button themselves
-  const [manualTheme, setManualTheme] = useState(false);
-  const [themeFor, setThemeFor] = useState(summary);
-  if (themeFor !== summary) { setThemeFor(summary); setManualTheme(false); }
-  useEffect(() => {
-    applySiteTheme(siteTheme);
-    if (siteTheme && !manualTheme) document.documentElement.classList.toggle("dark", siteTheme.dark);
-    else applySettings(settings);
-  }, [siteTheme, settings, manualTheme]);
+  // Site colours re-tint the dashboard, but light/dark always follows the user's own choice
+  useEffect(() => { applySiteTheme(siteTheme); applySettings(settings); }, [siteTheme, settings]);
 
   const pct = phase === "discover" ? 5 : phase === "pages" ? 5 + (progress.done / Math.max(progress.total, 1)) * 75 : phase === "links" ? 85 : phase === "choose" ? 5 : 95;
   // Time left: measured average per page once pages finish, otherwise the rough estimate
@@ -376,7 +369,7 @@ export default function App() {
               aria-pressed={settings.glass} className="tt tt-round ml-auto sm:ml-0">
               <span className="tt-sheen" aria-hidden /><Droplets size={18} strokeWidth={2.2} className="tt-icon" />
             </button>
-            <span data-tour="theme" className="contents"><ThemeToggle onToggle={() => { setManualTheme(true); updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }); }} /></span>
+            <span data-tour="theme" className="contents"><ThemeToggle onToggle={() => { updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }); }} /></span>
             <button type="button" aria-label="Notifications" title="Notifications" className="tt tt-round !hidden sm:!grid"><span className="tt-sheen" aria-hidden /><Bell size={18} strokeWidth={2.2} className="tt-icon" /></button>
             {authEnabled && (user ? (
               <div className="relative" data-tour="account">

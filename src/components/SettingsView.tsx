@@ -71,7 +71,7 @@ export default function SettingsView({ settings: s, update, reset, hasSite, onTo
         <Row icon={ImageIcon} title="Use the analysed website as background" desc={`Shows the site's landing page (homepage screenshot) behind the glass.${hasSite ? "" : " Analyse a site to see it."}`}>
           <Toggle on={s.siteBackground} onChange={(v) => update({ siteBackground: v })} label="Site background" />
         </Row>
-        <Row icon={Palette} title="Match the website's theme" desc="Dashboard takes the site's colours and light/dark look. Text always stays readable.">
+        <Row icon={Palette} title="Match the website's theme" desc="Dashboard takes the site's colours. Light or dark stays your choice.">
           <Toggle on={s.siteTheme} onChange={(v) => update({ siteTheme: v })} label="Match site theme" />
         </Row>
         <Row icon={Wand2} title={`Background blur: ${s.bgBlur}px`} desc="0 = sharp screenshot. Higher = softer.">
