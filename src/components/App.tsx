@@ -190,7 +190,7 @@ export default function App() {
       const rootHost = new URL(disc.root).hostname.replace(/^www\./, "");
       const order = (a: PageResult, b: PageResult) => queue.indexOf(a.url) - queue.indexOf(b.url);
       // Always keep the URL we asked for, so a failed page still shows which page it was
-      const scanOne = (u: string) => post<PageResult>("/api/page", { url: u, mobile: u === disc.root }).then((r) => ({ ...r, url: r.url || u })).catch((e): PageResult => ({ url: u, error: e.message || "Could not scan this page" }));
+      const scanOne = (u: string, lite = false) => post<PageResult>("/api/page", { url: u, mobile: u === disc.root, lite }).then((r) => ({ ...r, url: r.url || u })).catch((e): PageResult => ({ url: u, error: e.message || "Could not scan this page" }));
       let idx = 0;
       const worker = async () => {
         while (idx < queue.length && !stopRef.current) {
@@ -214,17 +214,20 @@ export default function App() {
       };
       await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
-      // 4) Retry pages that failed or have no screenshot (once, with a short pause)
-      const retry = results.filter((r) => r.error || !r.screenshot);
-      if (retry.length && !stopRef.current) {
-        say(`Retrying ${retry.length} page(s) that failed…`);
+      // 4) Retry pages that failed or have no screenshot, in the lighter backup mode (skips videos and
+      //    slow extras), up to twice, so very heavy pages still return their data
+      for (let attempt = 1; attempt <= 2 && !stopRef.current; attempt++) {
+        const retry = results.filter((r) => r.error || !r.screenshot);
+        if (!retry.length) break;
+        say(`Retrying ${retry.length} heavy page(s) with a lighter scan${attempt > 1 ? " (last try)" : ""}…`);
         await new Promise((r) => setTimeout(r, 1500));
         let j = 0;
         const rworker = async () => {
           while (j < retry.length && !stopRef.current) {
             const old = retry[j++];
-            const r = await scanOne(old.url);
-            if (!r.error || (r.screenshot && !old.screenshot)) results[results.indexOf(old)] = r;
+            const r = await scanOne(old.url, true);
+            const better = (!r.error && (!!old.error || !!r.screenshot)) || (!!r.screenshot && !old.screenshot && !!old.error);
+            if (better) results[results.indexOf(old)] = r;
             setPages([...results].sort(order));
           }
         };

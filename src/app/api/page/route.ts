@@ -25,7 +25,7 @@ async function autoScroll(page: Page) {
 export async function POST(req: Request) {
   const limited = await rateLimit(req, "page");
   if (limited) return limited;
-  const { url, mobile } = await req.json();
+  const { url, mobile, lite } = await req.json(); // lite = backup mode for very heavy pages
   let browser;
   let lastShot: string | null = null; // kept so even a failed page still returns its screenshot
   // Time budget: Vercel stops the function at 60 s, so slow steps are skipped when time runs short
@@ -48,6 +48,8 @@ export async function POST(req: Request) {
         if (PRIVATE_LITERAL.test(h) && process.env.ALLOW_PRIVATE_HOSTS !== "1") return r.abort();
       } catch { /* data: urls etc */ }
       if (requests.length < 400) requests.push({ url: r.url(), type: r.resourceType() });
+      // Backup mode: skip videos and audio, the usual reason a heavy page never finishes loading
+      if (lite && r.resourceType() === "media") return r.abort();
       r.continue();
     });
     const failed: string[] = [];
@@ -82,26 +84,29 @@ export async function POST(req: Request) {
     const t0 = Date.now();
     // Wait for "load" rather than network idle: busy sites (trackers, chat widgets, video) never go idle.
     // Then give the network a few seconds to settle.
-    const gotoResp = await page.goto(target.toString(), { waitUntil: "load", timeout: 25000 }).catch(async (e) => {
+    const gotoResp = await page.goto(target.toString(), { waitUntil: lite ? "domcontentloaded" : "load", timeout: lite ? 20000 : 25000 }).catch(async (e) => {
       if (String(e).includes("timeout")) return null; // heavy page: carry on with what has loaded
       throw e;
     });
     const loadMs = Date.now() - t0;
-    await page.waitForNetworkIdle({ idleTime: 500, timeout: Math.max(1000, Math.min(6000, left() - 35000)) }).catch(() => {});
+    if (lite) await new Promise((r) => setTimeout(r, 2500)); // let the first screen render
+    else await page.waitForNetworkIdle({ idleTime: 500, timeout: Math.max(1000, Math.min(6000, left() - 35000)) }).catch(() => {});
     const resp = gotoResp ?? (mainResp as HTTPResponse | null);
     mark("load");
-    if (left() > 30000) await within(autoScroll(page), 6000).catch(() => {});
+    if (!lite && left() > 30000) await within(autoScroll(page), 6000).catch(() => {});
     await new Promise((r) => setTimeout(r, 400));
 
     // Screenshot FIRST, so every page that loads gets one even if data extraction fails later.
     // Full page (capped height); if that fails (huge/odd pages), fall back to the visible viewport.
-    let shot: string;
+    // A missing screenshot never fails the page: the data is still worth returning.
+    let shot: string | null = null;
     try {
+      if (lite) throw new Error("viewport only");
       const height = Math.min(((await within(page.evaluate("document.documentElement.scrollHeight"), 4000)) as number) || 800, 3600);
       shot = (await within(page.screenshot({ type: "jpeg", quality: 55, clip: { x: 0, y: 0, width: 1280, height: Math.max(height, 800) }, captureBeyondViewport: true, encoding: "base64" }), 12000)) as string;
     } catch {
       // heavy pages (WebGL, huge images) can stall a full-page capture: take the visible screen instead
-      shot = (await within(page.screenshot({ type: "jpeg", quality: 60, encoding: "base64" }), 8000)) as string;
+      shot = (await within(page.screenshot({ type: "jpeg", quality: 60, encoding: "base64" }), 8000).catch(() => null)) as string | null;
     }
     lastShot = shot;
     mark("screenshot");
@@ -134,7 +139,7 @@ export async function POST(req: Request) {
 
     // Accessibility audit with axe-core (WCAG 2 A/AA rules), max ~15 s
     let a11y: { violations: { id: string; impact: string | null; help: string; description: string; helpUrl: string; count: number; targets: string[] }[]; passes: number } | null = null;
-    if (left() > 22000) try {
+    if (!lite && left() > 22000) try {
       const axe = (await import("axe-core")).default;
       await within(page.evaluate(axe.source), 5000);
       const res = (await Promise.race([
@@ -155,8 +160,8 @@ export async function POST(req: Request) {
         return (await within(page.screenshot({ type: "jpeg", quality: 60, encoding: "base64" }), 5000)) as string;
       } catch { return null; }
     };
-    const tabletShot = left() > 9000 ? await deviceShot(768, 1024) : null;
-    const mobileShot = left() > 6000 ? await deviceShot(390, 844) : null;
+    const tabletShot = !lite && left() > 9000 ? await deviceShot(768, 1024) : null;
+    const mobileShot = !lite && left() > 6000 ? await deviceShot(390, 844) : null;
 
     // Merge network media into the page's media list; label GIFs, videos and SVGs by their real file type
     {
@@ -223,7 +228,8 @@ export async function POST(req: Request) {
       status: resp ? resp.status() : null,
       loadMs,
       headers,
-      screenshot: "data:image/jpeg;base64," + shot,
+      screenshot: shot ? "data:image/jpeg;base64," + shot : undefined,
+      lite: !!lite,
       mobileScreenshot: mobileShot ? "data:image/jpeg;base64," + mobileShot : null,
       tabletScreenshot: tabletShot ? "data:image/jpeg;base64," + tabletShot : null,
       vitals, a11y, timings,

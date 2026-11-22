@@ -591,7 +591,7 @@ function PagesTable({ pages, full }: { pages: PageResult[]; full?: boolean }) {
               <td className="max-w-[220px] py-2.5 pr-3"><span className="flex items-center gap-1.5"><Link2 size={14} className="shrink-0 text-indigo-500" /><span className="truncate">{pathOf(p.url)}</span></span></td>
               {full && <td className="max-w-[280px] truncate pr-3">{p.seo?.title || "—"}</td>}
               <td className="pr-3">{p.seo?.wordCount?.toLocaleString() ?? "—"}</td>
-              <td title={p.error || undefined}>{p.error ? <Badge tone="red">Error</Badge> : <Badge tone={p.status && p.status < 400 ? "green" : "amber"}>{p.status ?? "?"}</Badge>}</td>
+              <td title={p.error || (p.lite ? "Heavy page: scanned with a lighter scan (no tablet/phone screenshots or accessibility check)" : undefined)}>{p.error ? <Badge tone="red">Error</Badge> : <span className="inline-flex items-center gap-1"><Badge tone={p.status && p.status < 400 ? "green" : "amber"}>{p.status ?? "OK"}</Badge>{p.lite && <Badge tone="amber">Lite</Badge>}</span>}</td>
             </tr>
           ))}
         </tbody>

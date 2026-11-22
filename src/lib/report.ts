@@ -17,6 +17,7 @@ export type DesignRaw = {
 };
 export type PageResult = {
   url: string; finalUrl?: string; status?: number | null; loadMs?: number; error?: string;
+  lite?: boolean; // scanned in the lighter backup mode (very heavy page): no tablet/phone shots or accessibility check
   screenshot?: string; mobileScreenshot?: string | null; tabletScreenshot?: string | null; faviconData?: string | null;
   vitals?: { lcp: number | null; cls: number; tbt: number; fcp: number | null; ratings: Record<"lcp" | "cls" | "tbt" | "fcp", string> } | null;
   a11y?: { violations: { id: string; impact: string | null; help: string; description: string; helpUrl: string; count: number; targets: string[] }[]; passes: number } | null;
