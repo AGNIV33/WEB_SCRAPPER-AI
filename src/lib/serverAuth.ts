@@ -27,7 +27,8 @@ export async function getCaller(req: Request): Promise<Caller> {
  * in .env.local and in Vercel. The email must be verified (Google sign-in always is), so nobody can
  * become admin by signing up with an admin address they do not own.
  */
-const adminEmails = () => (process.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+// Forgiving parse: commas, semicolons or spaces between emails, and stray quotes are ignored
+export const adminEmails = () => (process.env.ADMIN_EMAILS || "").split(/[,;\s]+/).map((e) => e.replace(/["'`]/g, "").trim().toLowerCase()).filter(Boolean);
 export const isAdmin = (c: Caller) => !!c?.email && c.emailVerified === true && adminEmails().includes(c.email.toLowerCase());
 
 /** True when login is set up for this deployment (otherwise everyone gets full access, as before). */

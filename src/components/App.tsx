@@ -167,7 +167,7 @@ export default function App() {
           }).catch(() => {});
         });
       }
-      if (u) idToken().then((t) => fetch("/api/me", { headers: t ? { authorization: `Bearer ${t}` } : {} })).then((r) => r.json()).then((j) => setIsAdmin(!!j.admin)).catch(() => {});
+      if (u) idToken().then((t) => fetch("/api/me", { headers: t ? { authorization: `Bearer ${t}` } : {} })).then((r) => r.json()).then((j) => { setIsAdmin(!!j.admin); if (!j.admin) console.info("Admin check:", j.reason); }).catch(() => {});
       // Quick tour: once, for accounts created in the last 24 hours
       try {
         const isNew = Date.now() - new Date(u?.metadata.creationTime || 0).getTime() < 24 * 3600 * 1000;
