@@ -102,6 +102,7 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [avatarBroken, setAvatarBroken] = useState(false); // Google photo failed to load: show the initial instead
   const [guestRun, setGuestRun] = useState(false);
   const isLocked = (v: View) => authEnabled && !user && !GUEST_VIEWS.includes(v);
   const [authOpen, setAuthOpen] = useState(false);
@@ -362,10 +363,24 @@ export default function App() {
             {authEnabled && (user ? (
               <div className="relative">
                 <button type="button" onClick={() => setUserMenu((o) => !o)} aria-label="Account menu"
-                  className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-sm font-semibold uppercase text-white">{(user.email || "?")[0]}</button>
+                  className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-sm font-semibold uppercase text-white ring-2 ring-white shadow dark:ring-white/10">
+                  {user.photoURL && !avatarBroken
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" onError={() => setAvatarBroken(true)} className="h-full w-full object-cover" />
+                    : (user.displayName || user.email || "?")[0]}
+                </button>
                 {userMenu && (
                   <div className="absolute right-0 top-12 z-50 w-60 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl dark:border-white/10 dark:bg-[#1b1b30]">
-                    <div className="truncate px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{user.email}</div>
+                    <div className="flex items-center gap-3 px-3 py-2">
+                      {user.photoURL && !avatarBroken
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+                        : <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-sm font-semibold uppercase text-white">{(user.displayName || user.email || "?")[0]}</div>}
+                      <div className="min-w-0">
+                        {user.displayName && <div className="truncate text-sm font-semibold">{user.displayName}</div>}
+                        <div className="truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</div>
+                      </div>
+                    </div>
                     <button type="button" onClick={() => { setView("history"); setUserMenu(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-white/5"><History size={16} /> My history</button>
                     <button type="button" onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"><LogOut size={16} /> Log out</button>
                   </div>
