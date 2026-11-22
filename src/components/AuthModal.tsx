@@ -1,22 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { X, Mail, Lock, LogIn, UserPlus } from "lucide-react";
+import { X, Mail, Lock, LogIn, UserPlus, User as UserIcon } from "lucide-react";
+import Select from "@/components/Select";
+import { COUNTRIES } from "@/lib/countries";
 import { login, loginWithGoogle, resetPassword, signup } from "@/lib/firebase";
 
 export default function AuthModal({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [name, setName] = useState("");
+  const [country, setCountry] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true); setMsg(null);
+    setMsg(null);
+    if (mode === "signup") {
+      if (name.trim().length < 2) { setMsg({ ok: false, text: "Please enter your name." }); return; }
+      if (!country) { setMsg({ ok: false, text: "Please choose your country." }); return; }
+      if (password !== confirm) { setMsg({ ok: false, text: "The two passwords do not match." }); return; }
+    }
+    setBusy(true);
     try {
       if (mode === "login") await login(email, password);
-      else { await signup(email, password); setMsg({ ok: true, text: "Account created. We sent a verification link to your email." }); setBusy(false); setTimeout(onClose, 1800); return; }
+      else { await signup(email, password, { name, country }); setMsg({ ok: true, text: "Account created. We sent a verification link to your email." }); setBusy(false); setTimeout(onClose, 1800); return; }
       onClose();
     } catch (err) {
       setMsg({ ok: false, text: (err as Error).message });
@@ -29,7 +40,7 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
   const box = "flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 focus-within:border-indigo-400 dark:border-white/10 dark:bg-white/5";
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
-      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="glass-panel w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#16162a]">
+      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="glass-panel max-h-[94vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#16162a]">
         <div className="mb-5 flex items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-mark.svg" alt="" className="mr-3 h-9 w-9" />
@@ -47,8 +58,15 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
         </button>
         <div className="mb-4 flex items-center gap-3 text-xs text-slate-400"><span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />or with email<span className="h-px flex-1 bg-slate-200 dark:bg-white/10" /></div>
         <div className="space-y-3">
+          {mode === "signup" && (
+            <>
+              <label className={box}><UserIcon size={16} className="text-slate-400" /><input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className={input} autoComplete="name" maxLength={60} /></label>
+              <Select searchable ariaLabel="Country" value={country} onChange={setCountry} placeholder="Country" options={COUNTRIES.map((c) => ({ value: c, label: c }))} />
+            </>
+          )}
           <label className={box}><Mail size={16} className="text-slate-400" /><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className={input} autoComplete="email" /></label>
           <label className={box}><Lock size={16} className="text-slate-400" /><input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (min 6 characters)" className={input} autoComplete={mode === "login" ? "current-password" : "new-password"} /></label>
+          {mode === "signup" && <label className={box}><Lock size={16} className="text-slate-400" /><input type="password" required minLength={6} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm password" className={input} autoComplete="new-password" /></label>}
         </div>
         {mode === "login" && (
           <button type="button" disabled={busy} className="mt-2 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"

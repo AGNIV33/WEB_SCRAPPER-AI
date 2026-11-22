@@ -5,7 +5,7 @@ import {
   Activity, AlertTriangle, BarChart3, Bug, ChevronDown, Clock, Crown, Download, Eye, Globe, Lightbulb, Mail, MessageSquare, RefreshCw, RotateCcw,
   Search, Send, ShieldCheck, Trash2, UserPlus, Users, Zap, Check, X,
 } from "lucide-react";
-import { deleteFeedback, loadAdminData, removeUser, restoreUser, setPlan, updateFeedback, type AdminData, type EventRow, type UserRow } from "@/lib/admin";
+import { deleteFeedback, removeUser, restoreUser, setPlan, updateFeedback, watchAdminData, type AdminData, type EventRow, type UserRow } from "@/lib/admin";
 import { TYPE_LABEL, type FeedbackItem, type FeedbackStatus } from "@/lib/feedback";
 import { ago } from "@/lib/notify";
 import Select from "@/components/Select";
@@ -36,18 +36,10 @@ export default function AdminView({ currentUid, onChanged }: { currentUid?: stri
   const [tab, setTab] = useState<Tab>("overview");
   const [range, setRange] = useState(14);
 
-  const load = useCallback(async () => {
-    try { const d = await loadAdminData(); setData(d); setErr(null); }
-    catch (e) { setErr(niceError(e)); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => {
-    let on = true; // first load
-    loadAdminData().then((d) => { if (on) { setData(d); setErr(null); } }).catch((e) => { if (on) setErr(niceError(e)); }).finally(() => { if (on) setLoading(false); });
-    return () => { on = false; };
-  }, []);
-  const refresh = useCallback(() => { setLoading(true); return load(); }, [load]);
-
+  // Live: Firestore pushes every change (new sign-up, scan, message), so nothing needs refreshing
+  const [conn, setConn] = useState(0);
+  useEffect(() => watchAdminData((d) => { setData(d); setErr(null); setLoading(false); }, (e) => { setErr(niceError(e)); setLoading(false); }), [conn]);
+  const refresh = useCallback(() => { setLoading(true); setConn((n) => n + 1); }, []);
   const emailOf = useMemo(() => { const m = new Map<string, string>(); data?.users.forEach((u) => m.set(u.uid, u.email || `${u.uid.slice(0, 8)}…`)); return (uid: string) => m.get(uid) || `${uid.slice(0, 8)}…`; }, [data]);
 
   const stats = useMemo(() => {
@@ -84,7 +76,7 @@ export default function AdminView({ currentUid, onChanged }: { currentUid?: stri
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/30"><ShieldCheck size={20} /></div>
         <div className="min-w-0 flex-1">
           <h2 className="text-xl font-bold">Admin dashboard</h2>
-          <p className={`text-xs ${muted}`}>Updated {ago(data.loadedAt.getTime())}{data.eventsTruncated ? " · graphs use the latest 3,000 events" : ""}</p>
+          <p className={`flex items-center gap-1.5 text-xs ${muted}`}><span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" /></span>Live · updated {ago(data.loadedAt.getTime())}{data.eventsTruncated ? " · graphs use the latest 3,000 events" : ""}</p>
         </div>
         <button onClick={refresh} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-60 dark:border-white/10 dark:hover:bg-white/5"><RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh</button>
       </div>
@@ -105,8 +97,8 @@ export default function AdminView({ currentUid, onChanged }: { currentUid?: stri
       </div>
 
       {tab === "overview" && <Overview data={data} range={range} stats={stats} emailOf={emailOf} />}
-      {tab === "users" && <UsersTab data={data} stats={stats} currentUid={currentUid} reload={async () => { await load(); onChanged?.(); }} />}
-      {tab === "feedback" && <FeedbackTab items={data.feedback} reload={async () => { await load(); onChanged?.(); }} />}
+      {tab === "users" && <UsersTab data={data} stats={stats} currentUid={currentUid} reload={async () => { onChanged?.(); }} />}
+      {tab === "feedback" && <FeedbackTab items={data.feedback} reload={async () => { onChanged?.(); }} />}
       {tab === "errors" && <ErrorsTab events={data.events} emailOf={emailOf} />}
     </div>
   );
@@ -175,6 +167,7 @@ function Overview({ data, range, stats, emailOf }: { data: AdminData; range: num
     });
     data.users.forEach((u) => { const i = u.createdAt ? idx.get(dayKey(u.createdAt)) : undefined; if (i !== undefined) usersD[i].a++; });
     const hosts = new Map<string, number>(); scans.forEach((e) => e.host && hosts.set(e.host, (hosts.get(e.host) || 0) + 1));
+    const countries = new Map<string, number>(); data.users.forEach((u) => { if (u.country) countries.set(u.country, (countries.get(u.country) || 0) + 1); });
     const active = (ms: number) => data.users.filter((u) => u.lastSeen && now - u.lastSeen.getTime() < ms).length;
     const pagesOk = scans.reduce((t, e) => t + e.pagesOk, 0), pagesFailed = scans.reduce((t, e) => t + e.pagesFailed, 0);
     return {
@@ -183,6 +176,7 @@ function Overview({ data, range, stats, emailOf }: { data: AdminData; range: num
       avgSeconds: scans.length ? scans.reduce((t, e) => t + e.seconds, 0) / scans.length : 0,
       newUsers: data.users.filter((u) => u.createdAt && u.createdAt.getTime() >= since).length,
       active24: active(DAY), active7: active(7 * DAY),
+      topCountries: [...countries.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6),
       topHosts: [...hosts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8),
       topUsers: data.users.map((u) => ({ u, s: stats(u.uid) })).sort((a, b) => b.s.scans - a.s.scans).slice(0, 5).filter((x) => x.s.scans > 0),
     };
@@ -216,6 +210,15 @@ function Overview({ data, range, stats, emailOf }: { data: AdminData; range: num
         <section className={`${card} p-5`}>
           <h3 className="mb-3 font-semibold">Free vs paid</h3>
           <Donut parts={[{ label: "Free", value: data.users.length - paid, color: "#6366f1" }, { label: "Paid (Pro)", value: paid, color: "#f59e0b" }]} />
+        </section>
+        <section className={`${card} p-5`}>
+          <h3 className="mb-3 font-semibold">Users by country</h3>
+          {o.topCountries.length === 0 ? <p className={`text-sm ${muted}`}>No countries yet. They appear as new users sign up.</p> : (
+            <ul className="space-y-2">{o.topCountries.map(([name, n]) => (
+              <li key={name} className="text-sm"><div className="flex justify-between gap-2"><span className="truncate">{name}</span><b>{n}</b></div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${(n / o.topCountries[0][1]) * 100}%` }} /></div></li>
+            ))}</ul>
+          )}
         </section>
         <section className={`${card} p-5`}>
           <h3 className="mb-3 font-semibold">Most scanned websites</h3>
@@ -265,8 +268,8 @@ function UsersTab({ data, stats, currentUid, reload }: { data: AdminData; stats:
     try { await fn(); await reload(); setNote(done); } catch (e) { setNote(`Failed: ${(e as Error).message}`); } finally { setBusy(null); setConfirm(null); }
   }
   function csv() {
-    const head = ["email", "name", "plan", "status", "joined", "last_seen", "sign_ins", "time_spent_sec", "websites", "scans", "api_calls", "scan_errors", "pages_failed"];
-    const lines = rows.map((u) => { const s = stats(u.uid); return [u.email, u.name, u.plan, u.blocked ? "removed" : "active", u.createdAt?.toISOString() || "", u.lastSeen?.toISOString() || "", u.logins, u.timeSpentSec, u.uniqueCount, Math.max(u.total, s.scans), s.apiCalls, s.scanErrors + s.errorEvents, s.pagesFailed].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","); });
+    const head = ["email", "name", "country", "plan", "status", "joined", "last_seen", "sign_ins", "time_spent_sec", "websites", "scans", "api_calls", "scan_errors", "pages_failed"];
+    const lines = rows.map((u) => { const s = stats(u.uid); return [u.email, u.name, u.country, u.plan, u.blocked ? "removed" : "active", u.createdAt?.toISOString() || "", u.lastSeen?.toISOString() || "", u.logins, u.timeSpentSec, u.uniqueCount, Math.max(u.total, s.scans), s.apiCalls, s.scanErrors + s.errorEvents, s.pagesFailed].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","); });
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([[head.join(","), ...lines].join("\n")], { type: "text/csv" })); a.download = "scrapper-ai-users.csv"; a.click(); URL.revokeObjectURL(a.href);
   }
 
@@ -280,10 +283,10 @@ function UsersTab({ data, stats, currentUid, reload }: { data: AdminData; stats:
       </div>
       {note && <p className="mb-3 rounded-xl bg-indigo-50 p-2.5 text-sm text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">{note}</p>}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px] text-left text-sm">
-          <thead className={`text-xs ${muted}`}><tr>{["User", "Plan", "Joined", "Last seen", "Sign-ins", "Time spent", "Sites", "Scans", "API calls", "Errors", ""].map((h) => <th key={h} className="whitespace-nowrap py-2 pr-3 font-medium">{h}</th>)}</tr></thead>
+        <table className="w-full min-w-[1060px] text-left text-sm">
+          <thead className={`text-xs ${muted}`}><tr>{["User", "Country", "Plan", "Joined", "Last seen", "Sign-ins", "Time spent", "Sites", "Scans", "API calls", "Errors", ""].map((h) => <th key={h} className="whitespace-nowrap py-2 pr-3 font-medium">{h}</th>)}</tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={11} className={`py-8 text-center ${muted}`}>No users match.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={12} className={`py-8 text-center ${muted}`}>No users match.</td></tr>}
             {rows.map((u) => {
               const s = stats(u.uid), isMe = u.uid === currentUid, errors = s.scanErrors + s.errorEvents;
               return (
@@ -295,6 +298,7 @@ function UsersTab({ data, stats, currentUid, reload }: { data: AdminData; stats:
                         <span className="min-w-0"><span className="flex items-center gap-1.5 truncate font-medium"><Mail size={12} className="shrink-0 text-indigo-500" />{u.email || <i className={muted}>email appears after next visit</i>}{isMe && <span className="rounded bg-amber-100 px-1 text-[10px] font-bold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">YOU</span>}</span>{u.name && <span className={`block truncate text-xs ${muted}`}>{u.name}</span>}</span>
                       </button>
                     </td>
+                    <td className="whitespace-nowrap pr-3">{u.country || <span className={muted}>—</span>}</td>
                     <td className="pr-3">{u.blocked ? <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600 dark:bg-red-500/15 dark:text-red-300">Removed</span> : u.plan === "pro" ? <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"><Crown size={11} /> Paid</span> : <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold dark:bg-white/10">Free</span>}</td>
                     <td className="whitespace-nowrap pr-3">{u.createdAt ? u.createdAt.toLocaleDateString() : "—"}</td>
                     <td className="whitespace-nowrap pr-3" title={u.lastSeen?.toLocaleString()}>{u.lastSeen ? ago(u.lastSeen.getTime()) : "—"}</td>
@@ -318,7 +322,7 @@ function UsersTab({ data, stats, currentUid, reload }: { data: AdminData; stats:
                     </td>
                   </tr>
                   {open === u.uid && (
-                    <tr className="bg-slate-50/70 dark:bg-white/[0.03]"><td colSpan={11} className="px-4 py-3">
+                    <tr className="bg-slate-50/70 dark:bg-white/[0.03]"><td colSpan={12} className="px-4 py-3">
                       <UserDetail u={u} s={s} events={data.events.filter((e) => e.uid === u.uid).slice(0, 8)} feedback={data.feedback.filter((f) => f.uid === u.uid).length} />
                     </td></tr>
                   )}

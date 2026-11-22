@@ -14,7 +14,7 @@ import Dashboard, { type AiResult, type View as DashView } from "@/components/Da
 import AuthModal from "@/components/AuthModal";
 import ChoosePages from "@/components/ChoosePages";
 import HistoryView from "@/components/HistoryView";
-import { auth, authEnabled, idToken, logout as fbLogout, onUser, type User } from "@/lib/firebase";
+import { auth, authEnabled, flags, idToken, logout as fbLogout, onUser, type User } from "@/lib/firebase";
 import Greeting from "@/components/Greeting";
 import Tour from "@/components/Tour";
 import { getUsage, recordScan, type Usage } from "@/lib/usage";
@@ -25,6 +25,8 @@ import HeroSearch from "@/components/HeroSearch";
 import ThemeToggle from "@/components/ThemeToggle";
 import NotificationBell from "@/components/NotificationBell";
 import AdminView from "@/components/AdminView";
+import ProfileModal from "@/components/ProfileModal";
+import { needsProfile } from "@/lib/profile";
 import ContactView from "@/components/ContactView";
 import { isAccountBlocked, startHeartbeat, touchProfile, trackEvent } from "@/lib/track";
 import { myFeedback, markRepliesSeen, replyKey, seenReplies } from "@/lib/feedback";
@@ -118,6 +120,7 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false); // "complete your profile" (name, country, password)
   const [siteIcon, setSiteIcon] = useState<string | null>(null); // logo of the analysed website
   const [isAdmin, setIsAdmin] = useState(false); // admin account: unlimited (decided by the server)
   const [avatarBroken, setAvatarBroken] = useState(false);
@@ -146,7 +149,7 @@ export default function App() {
       if (!u && had) {
         stopRef.current = true;
         setPhase("idle"); setPages([]); setSite(null); setSummary(null); setAi(null); setMeta(null); setLog([]); setUrl(""); setSiteIcon(null);
-        setGuestRun(false); setSaveState("idle"); setUserMenu(false); setChooser(null); setView("overview");
+        setGuestRun(false); setSaveState("idle"); setUserMenu(false); setChooser(null); setView("overview"); setProfileOpen(false);
       }
       had = !!u;
       if (u) getUsage().then(setUsage); else setUsage(null);
@@ -156,6 +159,7 @@ export default function App() {
         isAccountBlocked(u.uid).then((blocked) => {
           if (blocked) { fbLogout(); setError("This account has been removed by the admin. Please contact support."); return; }
           touchProfile(u);
+          if (!flags.signingUp) needsProfile(u.uid).then((need) => { if (need) setProfileOpen(true); });
           myFeedback().then((list) => {
             const seen = seenReplies(u.uid);
             list.filter((f) => f.reply && !seen.has(replyKey(f))).forEach((f) => pushNote({ kind: "info", title: "Reply to your message", body: `${f.subject}: ${f.reply!.slice(0, 120)}`, view: "contact" }));
@@ -541,7 +545,8 @@ export default function App() {
         </main>
       </div>
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
-      <Tour open={tourOpen} onClose={closeTour} />
+      {profileOpen && user && <ProfileModal user={user} onDone={() => setProfileOpen(false)} onLogout={() => { setProfileOpen(false); fbLogout(); }} />}
+      <Tour open={tourOpen && !profileOpen} onClose={closeTour} />
       {chooser && (
         <ChoosePages host={new URL(chooser.disc.root).hostname} total={chooser.disc.total} atLeast={chooser.disc.atLeast} max={chooser.disc.maxAnalyze}
           initial={limit} estimate={estimateSeconds} fmt={fmtDuration} onStart={(n) => chooser.resolve(n)} onCancel={() => chooser.resolve(null)} />

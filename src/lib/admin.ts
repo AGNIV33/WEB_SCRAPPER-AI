@@ -2,7 +2,7 @@
 /* Admin dashboard data and actions. All of this is protected by firestore.rules (only the admin email can read it),
  * the buttons in the UI are just a convenience. */
 import {
-  collection, collectionGroup, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch, type Timestamp,
+  collection, collectionGroup, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch, type Query, type QuerySnapshot, type Timestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { toItem, type FeedbackItem, type FeedbackStatus } from "./feedback";
@@ -11,7 +11,7 @@ const toDate = (v: unknown) => { const t = v as Timestamp | undefined; return t 
 const num = (v: unknown) => (typeof v === "number" && isFinite(v) ? v : 0);
 
 export type UserRow = {
-  uid: string; email: string; name: string; photo: string; createdAt: Date | null; lastSeen: Date | null; logins: number; timeSpentSec: number;
+  uid: string; email: string; name: string; photo: string; country: string; createdAt: Date | null; lastSeen: Date | null; logins: number; timeSpentSec: number;
   plan: "free" | "pro"; sites: Record<string, number>; uniqueCount: number; total: number; blocked: boolean; blockedAt: Date | null; known: boolean;
 };
 export type EventRow = {
@@ -22,23 +22,16 @@ export type AdminData = { users: UserRow[]; events: EventRow[]; feedback: Feedba
 
 const EVENT_LIMIT = 3000;
 
-export async function loadAdminData(): Promise<AdminData> {
-  if (!db) throw new Error("Login is not configured");
-  const [profiles, metas, evs, fb, blocked] = await Promise.all([
-    getDocs(query(collection(db, "users"), limit(2000))),
-    getDocs(collectionGroup(db, "meta")),
-    getDocs(query(collection(db, "events"), orderBy("at", "desc"), limit(EVENT_LIMIT))),
-    getDocs(query(collection(db, "feedback"), orderBy("createdAt", "desc"), limit(300))),
-    getDocs(collection(db, "blocked")),
-  ]);
+type Snaps = { profiles: QuerySnapshot; metas: QuerySnapshot; evs: QuerySnapshot; fb: QuerySnapshot; blocked: QuerySnapshot };
 
+function build({ profiles, metas, evs, fb, blocked }: Snaps): AdminData {
   const users = new Map<string, UserRow>();
-  const blank = (uid: string): UserRow => ({ uid, email: "", name: "", photo: "", createdAt: null, lastSeen: null, logins: 0, timeSpentSec: 0, plan: "free", sites: {}, uniqueCount: 0, total: 0, blocked: false, blockedAt: null, known: false });
+  const blank = (uid: string): UserRow => ({ uid, email: "", name: "", photo: "", country: "", createdAt: null, lastSeen: null, logins: 0, timeSpentSec: 0, plan: "free", sites: {}, uniqueCount: 0, total: 0, blocked: false, blockedAt: null, known: false });
   const get = (uid: string) => { let u = users.get(uid); if (!u) { u = blank(uid); users.set(uid, u); } return u; };
 
   profiles.forEach((d) => {
     const x = d.data(); const u = get(d.id);
-    Object.assign(u, { email: String(x.email || ""), name: String(x.displayName || ""), photo: String(x.photoURL || ""), createdAt: toDate(x.createdAt), lastSeen: toDate(x.lastSeen), logins: num(x.logins), timeSpentSec: num(x.timeSpentSec), known: true });
+    Object.assign(u, { email: String(x.email || ""), name: String(x.displayName || ""), photo: String(x.photoURL || ""), country: String(x.country || ""), createdAt: toDate(x.createdAt), lastSeen: toDate(x.lastSeen), logins: num(x.logins), timeSpentSec: num(x.timeSpentSec), known: true });
   });
   metas.forEach((d) => {
     if (d.id !== "usage") return;
@@ -48,7 +41,7 @@ export async function loadAdminData(): Promise<AdminData> {
   });
   const events: EventRow[] = evs.docs.map((d) => {
     const x = d.data();
-    return { id: d.id, uid: String(x.uid || ""), type: x.type === "error" ? "error" : "scan", at: toDate(x.at) || new Date(0), host: String(x.host || ""), pagesOk: num(x.pagesOk), pagesFailed: num(x.pagesFailed), lite: num(x.lite), seconds: num(x.seconds), apiCalls: num(x.apiCalls), ai: !!x.ai, status: String(x.status || ""), where: String(x.where || ""), message: String(x.message || "") };
+    return { id: d.id, uid: String(x.uid || ""), type: x.type === "error" ? "error" : "scan", at: toDate(x.at) || new Date(), host: String(x.host || ""), pagesOk: num(x.pagesOk), pagesFailed: num(x.pagesFailed), lite: num(x.lite), seconds: num(x.seconds), apiCalls: num(x.apiCalls), ai: !!x.ai, status: String(x.status || ""), where: String(x.where || ""), message: String(x.message || "") };
   });
   events.forEach((e) => { if (e.uid) get(e.uid); });
   blocked.forEach((d) => { const u = get(d.id); u.blocked = true; u.blockedAt = toDate(d.data().at); if (!u.email) u.email = String(d.data().email || ""); });
@@ -59,6 +52,24 @@ export async function loadAdminData(): Promise<AdminData> {
   };
 }
 
+/**
+ * Live admin data: every change in Firestore (a new sign-up, a scan, a message) arrives here within a moment,
+ * so the dashboard updates by itself. Returns a function that stops listening.
+ */
+export function watchAdminData(cb: (d: AdminData) => void, onError: (e: Error) => void): () => void {
+  if (!db) { onError(new Error("Login is not configured")); return () => {}; }
+  const s: Partial<Snaps> = {};
+  const emit = () => { if (s.profiles && s.metas && s.evs && s.fb && s.blocked) cb(build(s as Snaps)); };
+  const sub = (k: keyof Snaps, q: Query) => onSnapshot(q, (snap) => { s[k] = snap; emit(); }, onError);
+  const stops = [
+    sub("profiles", query(collection(db, "users"), limit(2000))),
+    sub("metas", query(collectionGroup(db, "meta"))),
+    sub("evs", query(collection(db, "events"), orderBy("at", "desc"), limit(EVENT_LIMIT))),
+    sub("fb", query(collection(db, "feedback"), orderBy("createdAt", "desc"), limit(300))),
+    sub("blocked", query(collection(db, "blocked"))),
+  ];
+  return () => stops.forEach((stop) => stop());
+}
 /** Switch a user between the free and the paid (Pro) plan. The server reads this same field. */
 export async function setPlan(uid: string, plan: "free" | "pro") {
   if (!db) return;

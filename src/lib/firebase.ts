@@ -1,9 +1,9 @@
 import { getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, sendEmailVerification,
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, sendEmailVerification, updateProfile,
   type Auth, type User,
 } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { doc, getFirestore, serverTimestamp, setDoc, Timestamp, type Firestore } from "firebase/firestore";
 
 // Web config from Firebase console > Project settings > Your apps. These values are public by design;
 // data is protected by Firestore security rules (see firestore.rules).
@@ -56,12 +56,20 @@ export async function login(email: string, password: string) {
   try { await signInWithEmailAndPassword(auth, email, password); } catch (e) { throw friendly(e); }
 }
 
-export async function signup(email: string, password: string) {
-  if (!auth) throw new Error("Login is not configured");
+/** True while a sign-up is being saved, so the app does not ask for the profile a second time. */
+export const flags = { signingUp: false };
+
+/** Creates the account with its name and country, then asks the user to verify the email. */
+export async function signup(email: string, password: string, profile: { name: string; country: string }) {
+  if (!auth || !db) throw new Error("Login is not configured");
+  flags.signingUp = true;
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const name = profile.name.trim();
+    await updateProfile(cred.user, { displayName: name }).catch(() => {});
+    await setDoc(doc(db, "users", cred.user.uid), { email, displayName: name, country: profile.country, createdAt: Timestamp.now(), lastSeen: serverTimestamp() }, { merge: true }).catch(() => {});
     await sendEmailVerification(cred.user).catch(() => {}); // proves the user owns the email
-  } catch (e) { throw friendly(e); }
+  } catch (e) { throw friendly(e); } finally { flags.signingUp = false; }
 }
 
 /** Emails a link to set a new password (also adds a password to an account that was made with Google). */

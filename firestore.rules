@@ -6,7 +6,7 @@ rules_version = '2';
 // Only a VERIFIED email (Google sign-in always is) counts as admin. Admins can read usage data, handle
 // feedback, change plans and remove users. They can NOT read other people's saved analyses.
 //
-// - users/{uid}:            profile + counters (sign-ins, time spent). Owner writes only safe fields.
+// - users/{uid}:            profile (name, country) + counters (sign-ins, time spent). Owner writes only safe fields.
 // - users/{uid}/analyses:   each user's own history. Only the owner can read; the admin can delete (account removal).
 // - users/{uid}/meta/usage: free-plan counters; owners can read, and counts can only go UP (no resetting).
 //                           The plan field can only be changed by the admin.
@@ -26,15 +26,17 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId)
-                    && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt', 'lastSeen', 'logins', 'timeSpentSec'])
+                    && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt', 'lastSeen', 'logins', 'timeSpentSec', 'country'])
                     && request.resource.data.get('logins', 0) <= 1
                     && request.resource.data.get('timeSpentSec', 0) <= 120
+                    && request.resource.data.get('country', '').size() <= 60
                     && request.resource.data.get('email', '') in ['', request.auth.token.email];
       allow update: if (isOwner(userId)
-                    && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt', 'lastSeen', 'logins', 'timeSpentSec'])
+                    && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt', 'lastSeen', 'logins', 'timeSpentSec', 'country'])
                     && request.resource.data.get('logins', 0) - resource.data.get('logins', 0) in [0, 1]
                     && request.resource.data.get('timeSpentSec', 0) - resource.data.get('timeSpentSec', 0) >= 0
                     && request.resource.data.get('timeSpentSec', 0) - resource.data.get('timeSpentSec', 0) <= 120
+                    && request.resource.data.get('country', '').size() <= 60
                     && request.resource.data.get('email', '') in ['', request.auth.token.email])
                     || isAdmin();
       allow delete: if isAdmin();
