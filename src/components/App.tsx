@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock,
+  Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown,
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
@@ -47,33 +47,44 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return j as T;
 }
 
-const NAV: { id: View; label: string; icon: React.ElementType }[] = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "colors", label: "Colors", icon: Palette },
-  { id: "fonts", label: "Fonts", icon: Type },
-  { id: "pages", label: "Pages", icon: FileText },
-  { id: "screenshots", label: "Screenshots", icon: ImageIcon },
-  { id: "media", label: "Media", icon: Film },
-  { id: "animations", label: "Animations", icon: Sparkles },
-  { id: "security", label: "Security", icon: Shield },
-  { id: "speed", label: "Speed", icon: Gauge },
-  { id: "a11y", label: "Accessibility", icon: Accessibility },
-  { id: "suggestions", label: "Suggestions", icon: Lightbulb },
-  { id: "design", label: "Design.md", icon: FileCode },
-  { id: "code", label: "Tokens & Code", icon: Braces },
-  { id: "tech", label: "Tech Stack", icon: Layers },
-  ...(authEnabled ? [
+type NavItem = { id: View; label: string; icon: React.ElementType };
+/** Sidebar, grouped into collapsible categories. Items without a group title are always visible. */
+const NAV_GROUPS: { id: string; title?: string; icon?: React.ElementType; items: NavItem[] }[] = [
+  { id: "main", items: [{ id: "overview", label: "Overview", icon: LayoutDashboard }] },
+  { id: "design", title: "Design", icon: Palette, items: [
+    { id: "colors", label: "Colors", icon: Palette },
+    { id: "fonts", label: "Fonts", icon: Type },
+    { id: "animations", label: "Animations", icon: Sparkles },
+    { id: "design", label: "Design.md", icon: FileCode },
+    { id: "code", label: "Tokens & Code", icon: Braces },
+  ] },
+  { id: "content", title: "Content", icon: FileText, items: [
+    { id: "pages", label: "Pages", icon: FileText },
+    { id: "screenshots", label: "Screenshots", icon: ImageIcon },
+    { id: "media", label: "Media", icon: Film },
+  ] },
+  { id: "audit", title: "Audit", icon: Shield, items: [
+    { id: "security", label: "Security", icon: Shield },
+    { id: "speed", label: "Speed", icon: Gauge },
+    { id: "a11y", label: "Accessibility", icon: Accessibility },
+    { id: "suggestions", label: "Suggestions", icon: Lightbulb },
+    { id: "tech", label: "Tech Stack", icon: Layers },
+  ] },
+  ...(authEnabled ? [{ id: "account", title: "Account", icon: History, items: [
     { id: "history" as View, label: "History", icon: History },
     { id: "changes" as View, label: "What changed", icon: GitCompareArrows },
     { id: "compare" as View, label: "Compare sites", icon: Columns2 },
     { id: "pricing" as View, label: "Plans", icon: Crown },
-  ] : []),
-  { id: "settings", label: "Settings", icon: SettingsIcon },
+  ] }] : []),
+  { id: "end", items: [{ id: "settings", label: "Settings", icon: SettingsIcon }] },
 ];
 
 export default function App() {
   const { settings, update: updateSettings, reset: resetSettings } = useSettings();
   const mini = settings.sidebarCollapsed;
+  // Sidebar categories that are open (remembered in this browser). Default: Design open.
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => { try { return new Set(JSON.parse(localStorage.getItem("navGroups") || "[\"design\"]")); } catch { return new Set(["design"]); } });
+  const toggleGroup = (id: string) => setOpenGroups((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); try { localStorage.setItem("navGroups", JSON.stringify([...n])); } catch { /* ignore */ } return n; });
   const [url, setUrl] = useState("");
   const [limit, setLimit] = useState(() => readSettings().defaultPages);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -274,13 +285,37 @@ export default function App() {
           </button>
         </div>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
-          {NAV.map(({ id, label, icon: Icon }) => (
-            <button key={id} onClick={() => { setView(id); setMenuOpen(false); }} title={mini ? label : undefined}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${mini ? "lg:justify-center lg:px-0" : ""} ${view === id ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/25" : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"}`}>
-              <Icon size={18} className="shrink-0" /> <span className={`flex-1 text-left ${mini ? "lg:hidden" : ""}`}>{label}</span>
-              {isLocked(id) && <Lock size={13} className={`shrink-0 opacity-60 ${mini ? "lg:hidden" : ""}`} />}
-            </button>
-          ))}
+          {NAV_GROUPS.map((g) => {
+            // a group is open if the user opened it, or it holds the current page
+            const open = !g.title || mini || openGroups.has(g.id) || g.items.some((i) => i.id === view);
+            const GIcon = g.icon;
+            return (
+              <div key={g.id} className={g.title ? "mt-1" : ""}>
+                {g.title && GIcon && (
+                  <>
+                    {/* minimised sidebar: a thin divider instead of the category header */}
+                    {mini && <div className="mx-3 my-1.5 hidden h-px bg-slate-200 dark:bg-white/10 lg:block" />}
+                    <button onClick={() => toggleGroup(g.id)} aria-expanded={open}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ${mini ? "lg:hidden" : ""}`}>
+                      <GIcon size={14} className="shrink-0" /> <span className="flex-1 text-left">{g.title}</span>
+                      <ChevronDown size={14} className={`shrink-0 transition-transform duration-200 ${open ? "" : "-rotate-90"}`} />
+                    </button>
+                  </>
+                )}
+                <div className={`grid transition-[grid-template-rows] duration-200 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                  <div className={`flex flex-col gap-0.5 overflow-hidden ${g.title && !mini ? "pl-2" : ""}`}>
+                    {g.items.map(({ id, label, icon: Icon }) => (
+                      <button key={id} onClick={() => { setView(id); setMenuOpen(false); }} title={mini ? label : undefined} tabIndex={open ? 0 : -1}
+                        className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${mini ? "lg:justify-center lg:px-0" : ""} ${view === id ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/25" : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"}`}>
+                        <Icon size={18} className="shrink-0" /> <span className={`flex-1 text-left ${mini ? "lg:hidden" : ""}`}>{label}</span>
+                        {isLocked(id) && <Lock size={13} className={`shrink-0 opacity-60 ${mini ? "lg:hidden" : ""}`} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </nav>
         <div className={`mt-4 rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-100 p-4 dark:from-indigo-500/15 dark:to-violet-500/15 ${mini ? "lg:hidden" : ""}`}>
           <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-indigo-700 dark:text-indigo-300"><Sparkles size={16} /> AI-Powered Analysis</div>
