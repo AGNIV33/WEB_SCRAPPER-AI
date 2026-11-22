@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Download, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 
 export type LightboxItem = { src: string; kind: "image" | "video" | "audio"; title: string; subtitle?: string; original?: string };
@@ -20,10 +21,10 @@ export default function Lightbox({ items, index, onIndex, onClose, onDownload }:
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, [index, items.length, onClose, onIndex]);
-  if (!it) return null;
+  if (!it || typeof document === "undefined") return null;
   const btn = "grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-white hover:bg-white/20";
-  return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black/90 backdrop-blur-sm" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex flex-col bg-black/90 backdrop-blur-sm" onClick={onClose}>
       <div className="flex items-center gap-3 p-4 text-white" onClick={(e) => e.stopPropagation()}>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">{it.title}</div>
@@ -43,6 +44,7 @@ export default function Lightbox({ items, index, onIndex, onClose, onDownload }:
         </div>
         {items.length > 1 && <button onClick={() => onIndex((index + 1) % items.length)} className={`${btn} absolute right-4`} aria-label="Next"><ChevronRight size={22} /></button>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

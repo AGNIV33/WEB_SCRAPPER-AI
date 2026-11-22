@@ -284,7 +284,7 @@ export default function App() {
             {mini ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
+        <nav className="no-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
           {NAV_GROUPS.map((g) => {
             // a group is open if the user opened it, or it holds the current page
             const open = !g.title || mini || openGroups.has(g.id) || g.items.some((i) => i.id === view);
@@ -364,7 +364,7 @@ export default function App() {
                 <button type="button" onClick={() => setUserMenu((o) => !o)} aria-label="Account menu"
                   className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-sm font-semibold uppercase text-white">{(user.email || "?")[0]}</button>
                 {userMenu && (
-                  <div className="glass-panel absolute right-0 top-12 z-50 w-60 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl dark:border-white/10 dark:bg-[#16162a]">
+                  <div className="absolute right-0 top-12 z-50 w-60 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl dark:border-white/10 dark:bg-[#1b1b30]">
                     <div className="truncate px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{user.email}</div>
                     <button type="button" onClick={() => { setView("history"); setUserMenu(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-white/5"><History size={16} /> My history</button>
                     <button type="button" onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"><LogOut size={16} /> Log out</button>

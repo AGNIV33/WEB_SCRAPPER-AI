@@ -58,3 +58,7 @@ body {
 /* nested panels (e.g. a card inside a card) don't need their own blur */
 .glass [data-anim="card"] [data-anim="card"],
 .glass .glass-panel .glass-panel { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* Hide scrollbars but keep scrolling (sidebar) */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

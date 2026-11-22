@@ -56,7 +56,7 @@ export default function ExportMenu({ data }: { data: ExportData }) {
         {busy ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Export <ChevronDown size={14} />
       </button>
       {open && (
-        <div className="glass-panel absolute right-0 top-12 z-50 w-72 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-[#16162a]">
+        <div className="absolute right-0 top-12 z-50 w-72 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-[#1b1b30]">
           {ITEMS.map(({ id, label, desc, icon: Icon }) => {
             const disabled = (id === "zip" && !hasShots) || (id === "design" && !data.ai?.designMd) || !!busy;
             return (
