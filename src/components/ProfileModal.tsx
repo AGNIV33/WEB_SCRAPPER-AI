@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Lock, LogOut, Mail, User as UserIcon } from "lucide-react";
 import type { User } from "@/lib/firebase";
 import { COUNTRIES } from "@/lib/countries";
-import { completeProfile } from "@/lib/profile";
+import { completeProfile, skipProfile } from "@/lib/profile";
 import Select from "@/components/Select";
 
 /**
@@ -59,6 +59,7 @@ export default function ProfileModal({ user, onDone, onLogout }: { user: User; o
         </div>
         {err && <p className="mt-3 rounded-lg bg-red-50 p-2.5 text-xs text-red-700 dark:bg-red-500/10 dark:text-red-300">{err}</p>}
         <button disabled={busy} className="mt-4 w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 disabled:opacity-60">{busy ? "Saving…" : "Save and continue"}</button>
+        {err && !busy && <button type="button" onClick={() => { skipProfile(user.uid); onDone(); }} className="mx-auto mt-3 block text-xs font-medium text-indigo-500 hover:underline">Skip for now</button>}
         <button type="button" onClick={onLogout} className="mx-auto mt-3 flex items-center gap-1.5 text-xs text-slate-500 hover:underline dark:text-slate-400"><LogOut size={12} /> Log out instead</button>
       </form>
     </div>
