@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown,
+  Link2, X, Bell, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown,
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
@@ -20,6 +20,7 @@ import { LockedView, PricingView } from "@/components/PlanViews";
 import CompareView from "@/components/CompareView";
 import ChangesView from "@/components/ChangesView";
 import HeroSearch from "@/components/HeroSearch";
+import ThemeToggle from "@/components/ThemeToggle";
 import { loadAnalysis, saveAnalysis } from "@/lib/history";
 
 type View = DashView | "history" | "settings" | "pricing" | "compare" | "changes";
@@ -363,9 +364,7 @@ export default function App() {
               className={`ml-auto grid h-10 w-10 shrink-0 place-items-center rounded-xl border sm:ml-0 ${settings.glass ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-200" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"}`}>
               <Droplets size={18} />
             </button>
-            <button type="button" onClick={() => { setManualTheme(true); updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }); }} aria-label="Toggle light/dark theme" className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-              <Moon size={18} className="dark:hidden" /><Sun size={18} className="hidden dark:block" />
-            </button>
+            <ThemeToggle onToggle={() => { setManualTheme(true); updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }); }} />
             <button type="button" aria-label="Notifications" className="hidden h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 sm:grid dark:border-white/10 dark:bg-white/5 dark:text-slate-300"><Bell size={18} /></button>
             {authEnabled && (user ? (
               <div className="relative">
