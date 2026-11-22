@@ -5,6 +5,7 @@ import { Columns2, Trophy, Loader2, Check, X } from "lucide-react";
 import { listAnalyses, loadAnalysis, type HistoryItem } from "@/lib/history";
 import { metrics, HIGHER_IS_BETTER, type Snapshot } from "@/lib/diff";
 import { fmtMetric } from "@/components/ChangesView";
+import Select from "@/components/Select";
 import type { AiResult } from "@/components/Dashboard";
 
 const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
@@ -42,7 +43,6 @@ export default function CompareView({ current }: { current: (Snapshot & { ai: Ai
   const [A, B] = loaded && loaded.key === key ? loaded.s : [null, null];
   const loading = !!key && !A;
   const ma = A ? metrics(A) : null, mb = B ? metrics(B) : null;
-  const sel = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5";
   let winsA = 0, winsB = 0;
   const rows = ma && mb ? Object.keys(ma).map((k) => {
     const va = ma[k as keyof typeof ma], vb = mb[k as keyof typeof mb];
@@ -70,8 +70,8 @@ export default function CompareView({ current }: { current: (Snapshot & { ai: Ai
       {options.length < 2 ? <p className={`${card} text-sm ${muted}`}>You need at least two analyses. Analyse your site and a competitor&apos;s site while signed in, then come back here.</p> : (
         <>
           <section data-anim="card" className={`${card} grid gap-3 md:grid-cols-2`}>
-            <label className="text-xs">Website A<select value={a} onChange={(e) => setIds([e.target.value, b])} className={sel}><option value="">Choose a website…</option>{options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>
-            <label className="text-xs">Website B<select value={b} onChange={(e) => setIds([a, e.target.value])} className={sel}><option value="">Choose a website…</option>{options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>
+            <div className="text-xs"><div className="mb-1">Website A</div><Select ariaLabel="Website A" value={a} onChange={(v) => setIds([v, b])} placeholder="Choose a website…" options={options.map((o) => ({ value: o.id, label: o.label }))} /></div>
+            <div className="text-xs"><div className="mb-1">Website B</div><Select ariaLabel="Website B" value={b} onChange={(v) => setIds([a, v])} placeholder="Choose a website…" options={options.map((o) => ({ value: o.id, label: o.label }))} /></div>
           </section>
           {!key && <p className={`${card} text-center text-sm ${muted}`}>{a && a === b ? "Pick two different analyses to compare." : "Pick Website A and Website B above to compare them."}</p>}
           {key && loading && <p className={`flex items-center gap-2 text-sm ${muted}`}><Loader2 size={16} className="animate-spin" /> Loading…</p>}

@@ -8,6 +8,7 @@ import {
 import { deleteFeedback, loadAdminData, removeUser, restoreUser, setPlan, updateFeedback, type AdminData, type EventRow, type UserRow } from "@/lib/admin";
 import { TYPE_LABEL, type FeedbackItem, type FeedbackStatus } from "@/lib/feedback";
 import { ago } from "@/lib/notify";
+import Select from "@/components/Select";
 
 const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
 const muted = "text-slate-500 dark:text-slate-400";
@@ -273,8 +274,8 @@ function UsersTab({ data, stats, currentUid, reload }: { data: AdminData; stats:
     <section className={`${card} p-5`}>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <label className="flex min-w-[200px] flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 dark:border-white/10"><Search size={15} className={muted} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by email or name" className="w-full bg-transparent text-sm outline-none" /></label>
-        <select value={plan} onChange={(e) => setPlanFilter(e.target.value as typeof plan)} className="rounded-xl border border-slate-200 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:[&>option]:bg-[#16162a]" aria-label="Filter"><option value="all">All users</option><option value="free">Free plan</option><option value="pro">Paid plan</option><option value="blocked">Removed</option></select>
-        <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="rounded-xl border border-slate-200 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:[&>option]:bg-[#16162a]" aria-label="Sort by"><option value="seen">Last seen</option><option value="joined">Newest</option><option value="scans">Most scans</option><option value="api">Most API calls</option><option value="time">Most time spent</option><option value="errors">Most errors</option></select>
+        <div className="w-36"><Select ariaLabel="Filter users" value={plan} onChange={(v) => setPlanFilter(v as typeof plan)} options={[{ value: "all", label: "All users" }, { value: "free", label: "Free plan" }, { value: "pro", label: "Paid plan" }, { value: "blocked", label: "Removed" }]} /></div>
+        <div className="w-44"><Select ariaLabel="Sort by" value={sort} onChange={(v) => setSort(v as SortKey)} options={[{ value: "seen", label: "Sort: Last seen" }, { value: "joined", label: "Sort: Newest" }, { value: "scans", label: "Sort: Most scans" }, { value: "api", label: "Sort: Most API calls" }, { value: "time", label: "Sort: Most time spent" }, { value: "errors", label: "Sort: Most errors" }]} /></div>
         <button onClick={csv} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><Download size={14} /> CSV</button>
       </div>
       {note && <p className="mb-3 rounded-xl bg-indigo-50 p-2.5 text-sm text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">{note}</p>}
@@ -308,7 +309,7 @@ function UsersTab({ data, stats, currentUid, reload }: { data: AdminData; stats:
                         <span className="inline-flex items-center gap-1 text-xs">Remove{u.email ? "" : " this user"}? <button disabled={busy === u.uid} onClick={() => act(u.uid, () => removeUser(u.uid, u.email), "User removed and blocked.")} className="rounded-lg bg-red-600 px-2 py-1 font-semibold text-white">{busy === u.uid ? "…" : "Yes"}</button><button onClick={() => setConfirm(null)} className="rounded-lg border border-slate-200 px-2 py-1 dark:border-white/10">No</button></span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5">
-                          {!u.blocked && <select value={u.plan} disabled={busy === u.uid} onChange={(e) => act(u.uid, () => setPlan(u.uid, e.target.value as "free" | "pro"), `Plan changed to ${e.target.value === "pro" ? "Paid (Pro)" : "Free"}.`)} className="rounded-lg border border-slate-200 bg-transparent px-1.5 py-1 text-xs dark:border-white/10 dark:[&>option]:bg-[#16162a]" aria-label="Plan"><option value="free">Free</option><option value="pro">Paid</option></select>}
+                          {!u.blocked && <div className="w-[78px]"><Select size="sm" ariaLabel="Plan" disabled={busy === u.uid} value={u.plan} onChange={(v) => act(u.uid, () => setPlan(u.uid, v as "free" | "pro"), `Plan changed to ${v === "pro" ? "Paid (Pro)" : "Free"}.`)} options={[{ value: "free", label: "Free" }, { value: "pro", label: "Paid" }]} /></div>}
                           {u.blocked
                             ? <button disabled={busy === u.uid} onClick={() => act(u.uid, () => restoreUser(u.uid), "User restored.")} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><RotateCcw size={12} /> Restore</button>
                             : <button onClick={() => setConfirm(u.uid)} title="Remove this user" aria-label="Remove user" className="grid h-7 w-7 place-items-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 size={14} /></button>}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { GitCompareArrows, RefreshCw, ArrowUp, ArrowDown, Minus, Plus, Loader2 } from "lucide-react";
 import { listAnalyses, loadAnalysis, type HistoryItem } from "@/lib/history";
 import { changes, HIGHER_IS_BETTER, type Snapshot } from "@/lib/diff";
+import Select from "@/components/Select";
 
 const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
 const muted = "text-slate-500 dark:text-slate-400";
@@ -52,7 +53,6 @@ export default function ChangesView({ current, historyKey, onRescan }: { current
   const loading = !!key && !snaps && !error;
 
   const diff = useMemo(() => (snaps ? changes(snaps.a, snaps.b) : null), [snaps]);
-  const sel = "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5";
 
   return (
     <div className="grid gap-5">
@@ -61,9 +61,9 @@ export default function ChangesView({ current, historyKey, onRescan }: { current
         <p className={`text-sm ${muted}`}>Scan the same website again later, then compare any two scans from your history.</p>
       </div>
       <section data-anim="card" className={`${card} flex flex-wrap items-end gap-3`}>
-        <label className="text-xs">Website<br /><select value={h} onChange={(e) => { setHost(e.target.value); setBeforeId(""); setAfterId(""); }} className={sel}>{hosts.map((x) => <option key={x}>{x}</option>)}</select></label>
-        <label className="text-xs">Before<br /><select value={before} onChange={(e) => setBeforeId(e.target.value)} className={sel}>{scans.map((s) => <option key={s.id} value={s.id}>{fmtDate(s.created_at)}</option>)}</select></label>
-        <label className="text-xs">After<br /><select value={after} onChange={(e) => setAfterId(e.target.value)} className={sel}>{scans.map((s) => <option key={s.id} value={s.id}>{fmtDate(s.created_at)}</option>)}</select></label>
+        <div className="min-w-[180px] text-xs"><div className="mb-1">Website</div><Select ariaLabel="Website" value={h} onChange={(v) => { setHost(v); setBeforeId(""); setAfterId(""); }} options={hosts.map((x) => ({ value: x, label: x || "Saved analysis" }))} /></div>
+        <div className="min-w-[200px] text-xs"><div className="mb-1">Before</div><Select ariaLabel="Before" value={before} onChange={setBeforeId} options={scans.map((s) => ({ value: s.id, label: fmtDate(s.created_at) }))} /></div>
+        <div className="min-w-[200px] text-xs"><div className="mb-1">After</div><Select ariaLabel="After" value={after} onChange={setAfterId} options={scans.map((s) => ({ value: s.id, label: fmtDate(s.created_at) }))} /></div>
         {scans[0] && <button onClick={() => onRescan(scans[0].url)} className="ml-auto inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30"><RefreshCw size={16} /> Scan {h} again</button>}
       </section>
 
