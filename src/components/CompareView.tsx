@@ -20,12 +20,17 @@ export default function CompareView({ current }: { current: (Snapshot & { ai: Ai
 
   useEffect(() => { listAnalyses().then(setItems).catch(() => setItems([])); }, []);
   const options = useMemo(() => [
-    ...(current ? [{ id: "current", label: `Current: ${hostOf(current)}` }] : []),
-    ...items.map((i) => ({ id: i.id, label: `${i.host} · ${new Date(i.created_at).toLocaleDateString()}` })),
+    ...(current ? [{ id: "current", host: hostOf(current), label: `Current: ${hostOf(current)}` }] : []),
+    ...items.map((i) => {
+      const host = i.host || (() => { try { return new URL(i.url).hostname; } catch { return ""; } })() || "Saved analysis";
+      return { id: i.id, host, label: `${host} · ${new Date(i.created_at).toLocaleDateString()}` };
+    }),
   ], [items, current]);
-  const a = ids[0] || options[0]?.id || "", b = ids[1] || options.find((o) => o.id !== a)?.id || "";
+  // Nothing is compared until the user picks two different analyses
+  const a = ids[0], b = ids[1];
+  const nameOf = (id: string, s: Snapshot) => options.find((o) => o.id === id)?.host || hostOf(s);
 
-  const key = a && b ? `${a}|${b}` : "";
+  const key = a && b && a !== b ? `${a}|${b}` : "";
   useEffect(() => {
     if (!key) return;
     let live = true;
@@ -65,17 +70,18 @@ export default function CompareView({ current }: { current: (Snapshot & { ai: Ai
       {options.length < 2 ? <p className={`${card} text-sm ${muted}`}>You need at least two analyses. Analyse your site and a competitor&apos;s site while signed in, then come back here.</p> : (
         <>
           <section data-anim="card" className={`${card} grid gap-3 md:grid-cols-2`}>
-            <label className="text-xs">Website A<select value={a} onChange={(e) => setIds([e.target.value, b])} className={sel}>{options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>
-            <label className="text-xs">Website B<select value={b} onChange={(e) => setIds([a, e.target.value])} className={sel}>{options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>
+            <label className="text-xs">Website A<select value={a} onChange={(e) => setIds([e.target.value, b])} className={sel}><option value="">Choose a website…</option>{options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>
+            <label className="text-xs">Website B<select value={b} onChange={(e) => setIds([a, e.target.value])} className={sel}><option value="">Choose a website…</option>{options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>
           </section>
-          {loading && <p className={`flex items-center gap-2 text-sm ${muted}`}><Loader2 size={16} className="animate-spin" /> Loading…</p>}
-          {A && B && (
+          {!key && <p className={`${card} text-center text-sm ${muted}`}>{a && a === b ? "Pick two different analyses to compare." : "Pick Website A and Website B above to compare them."}</p>}
+          {key && loading && <p className={`flex items-center gap-2 text-sm ${muted}`}><Loader2 size={16} className="animate-spin" /> Loading…</p>}
+          {key && A && B && (
             <>
               <section data-anim="card" className={card}>
                 <div className="mb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
-                  <div className="truncate text-lg font-bold">{hostOf(A)}</div>
+                  <div className="truncate text-lg font-bold">{nameOf(a, A)}</div>
                   <div className={`text-xs ${muted}`}>vs</div>
-                  <div className="truncate text-lg font-bold">{hostOf(B)}</div>
+                  <div className="truncate text-lg font-bold">{nameOf(b, B)}</div>
                   <div className="text-sm"><Trophy size={14} className="mr-1 inline text-amber-500" />wins {winsA}</div><div /><div className="text-sm"><Trophy size={14} className="mr-1 inline text-amber-500" />wins {winsB}</div>
                 </div>
                 <div className="overflow-x-auto">
@@ -91,8 +97,8 @@ export default function CompareView({ current }: { current: (Snapshot & { ai: Ai
                 </div>
               </section>
               <div className="grid gap-5 md:grid-cols-2">
-                <section data-anim="card" className={card}><h3 className="mb-3 font-semibold">{hostOf(A)}</h3>{col(A)}</section>
-                <section data-anim="card" className={card}><h3 className="mb-3 font-semibold">{hostOf(B)}</h3>{col(B)}</section>
+                <section data-anim="card" className={card}><h3 className="mb-3 font-semibold">{nameOf(a, A)}</h3>{col(A)}</section>
+                <section data-anim="card" className={card}><h3 className="mb-3 font-semibold">{nameOf(b, B)}</h3>{col(B)}</section>
               </div>
             </>
           )}
