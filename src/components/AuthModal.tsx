@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Mail, Lock, LogIn, UserPlus } from "lucide-react";
-import { login, loginWithGoogle, signup } from "@/lib/firebase";
+import { login, loginWithGoogle, resetPassword, signup } from "@/lib/firebase";
 
 export default function AuthModal({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -16,7 +16,7 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
     setBusy(true); setMsg(null);
     try {
       if (mode === "login") await login(email, password);
-      else await signup(email, password);
+      else { await signup(email, password); setMsg({ ok: true, text: "Account created. We sent a verification link to your email." }); setBusy(false); setTimeout(onClose, 1800); return; }
       onClose();
     } catch (err) {
       setMsg({ ok: false, text: (err as Error).message });
@@ -50,6 +50,15 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
           <label className={box}><Mail size={16} className="text-slate-400" /><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className={input} autoComplete="email" /></label>
           <label className={box}><Lock size={16} className="text-slate-400" /><input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (min 6 characters)" className={input} autoComplete={mode === "login" ? "current-password" : "new-password"} /></label>
         </div>
+        {mode === "login" && (
+          <button type="button" disabled={busy} className="mt-2 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            onClick={async () => {
+              if (!email) { setMsg({ ok: false, text: "Type your email above first." }); return; }
+              setBusy(true); setMsg(null);
+              try { await resetPassword(email); setMsg({ ok: true, text: `If an account exists for ${email}, a link to set a new password is on its way. Check your inbox and spam.` }); }
+              catch (err) { setMsg({ ok: false, text: (err as Error).message }); } finally { setBusy(false); }
+            }}>Forgot password?</button>
+        )}
         {msg && <p className={`mt-3 rounded-lg p-2.5 text-xs ${msg.ok ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" : "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"}`}>{msg.text}</p>}
         <button disabled={busy} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 disabled:opacity-60">
           {mode === "login" ? <LogIn size={16} /> : <UserPlus size={16} />} {busy ? "Please wait…" : mode === "login" ? "Log in" : "Sign up"}

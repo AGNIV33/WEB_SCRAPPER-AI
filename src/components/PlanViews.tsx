@@ -44,7 +44,7 @@ const PLANS = [
 ];
 
 /** Plans + current usage. Payment is a demo (no real checkout yet). */
-export function PricingView({ usage, loggedIn, onLogin }: { usage: Usage | null; loggedIn: boolean; onLogin: () => void }) {
+export function PricingView({ usage, loggedIn, onLogin, admin = false }: { usage: Usage | null; loggedIn: boolean; onLogin: () => void; admin?: boolean }) {
   const [checkout, setCheckout] = useState<string | null>(null);
   const sites = Object.entries(usage?.sites || {}).sort((a, b) => b[1] - a[1]);
   return (
@@ -54,7 +54,17 @@ export function PricingView({ usage, loggedIn, onLogin }: { usage: Usage | null;
         <p className={`text-sm ${muted}`}>Free accounts get {LIMITS.freeSites} websites, each scanned up to {LIMITS.freeScansPerSite} times. Upgrade for more.</p>
       </div>
 
-      {loggedIn && usage && (
+      {admin && (
+        <section data-anim="card" className={`${card} flex items-center gap-4 border-amber-300/60 p-5 dark:border-amber-400/30`}>
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/30"><Crown size={22} /></div>
+          <div>
+            <div className="font-bold">Admin account · Unlimited</div>
+            <div className={`text-sm ${muted}`}>Every feature is unlocked. No website, scan, page or rate limits apply to this account. {usage ? `${usage.uniqueCount || 0} websites and ${usage.total || 0} scans so far.` : ""}</div>
+          </div>
+        </section>
+      )}
+
+      {loggedIn && usage && !admin && (
         <section data-anim="card" className={`${card} p-5`}>
           <div className="flex flex-wrap items-center gap-6">
             <div><div className={`text-xs ${muted}`}>Websites used</div><div className="text-2xl font-bold">{usage.uniqueCount || 0}<span className="text-base text-slate-400">/{LIMITS.freeSites}</span></div></div>

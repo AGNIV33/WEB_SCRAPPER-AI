@@ -8,6 +8,8 @@
  * - Off on your own PC (npm run dev / npm run fast) unless RATE_LIMIT=1.
  */
 
+import { getCaller, isAdmin } from "./serverAuth";
+
 type Rule = { limit: number; windowSec: number };
 
 /** Per visitor (IP) limits. One analysis of 50 pages = 1 discover + up to ~100 page calls (with retries). */
@@ -64,6 +66,7 @@ const wait = (s: number) => (s >= 60 ? `${Math.ceil(s / 60)} min` : `${s} s`);
 /** Returns a 429 Response if the caller is over the limit, otherwise null. */
 export async function rateLimit(req: Request, name: keyof typeof RULES): Promise<Response | null> {
   if (!enabled()) return null;
+  if (req.headers.get("authorization") && isAdmin(await getCaller(req))) return null; // admins are never limited
   const rule = RULES[name];
   const ip = clientIp(req);
   const r = await hit(`${name}:${ip}`, rule.windowSec);
@@ -77,8 +80,8 @@ export async function rateLimit(req: Request, name: keyof typeof RULES): Promise
 }
 
 /** Counts one AI run against the whole-app daily cap. False = cap reached (use rule-based results). */
-export async function aiBudgetLeft(): Promise<boolean> {
-  if (!enabled()) return true;
+export async function aiBudgetLeft(admin = false): Promise<boolean> {
+  if (!enabled() || admin) return true;
   const g = await hit("ai:all", 86400);
   return g.count <= AI_DAILY_TOTAL;
 }

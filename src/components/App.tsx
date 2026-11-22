@@ -111,6 +111,7 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false); // admin account: unlimited (decided by the server)
   const [avatarBroken, setAvatarBroken] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const closeTour = useCallback(() => { setTourOpen(false); try { if (auth?.currentUser) localStorage.setItem(`tourDone:${auth.currentUser.uid}`, "1"); } catch { /* ignore */ } }, []); // Google photo failed to load: show the initial instead
@@ -132,6 +133,8 @@ export default function App() {
     return onUser((u) => {
       setUser(u);
       if (u) getUsage().then(setUsage); else setUsage(null);
+      setIsAdmin(false);
+      if (u) idToken().then((t) => fetch("/api/me", { headers: t ? { authorization: `Bearer ${t}` } : {} })).then((r) => r.json()).then((j) => setIsAdmin(!!j.admin)).catch(() => {});
       // Quick tour: once, for accounts created in the last 24 hours
       try {
         const isNew = Date.now() - new Date(u?.metadata.creationTime || 0).getTime() < 24 * 3600 * 1000;
@@ -407,6 +410,7 @@ export default function App() {
                       <div className="min-w-0">
                         {user.displayName && <div className="truncate text-sm font-semibold">{user.displayName}</div>}
                         <div className="truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</div>
+                        {isAdmin && <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"><Crown size={10} /> Admin · Unlimited</span>}
                       </div>
                     </div>
                     <button type="button" onClick={() => { setView("history"); setUserMenu(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-white/5"><History size={16} /> My history</button>
@@ -450,7 +454,7 @@ export default function App() {
             : view === "settings"
             ? <SettingsView settings={settings} update={updateSettings} reset={resetSettings} hasSite={pages.some((p) => p.screenshot)} onTour={() => { setView("overview"); setTimeout(() => setTourOpen(true), 300); }} />
             : view === "pricing"
-            ? <PricingView usage={usage} loggedIn={!!user} onLogin={() => setAuthOpen(true)} />
+            ? <PricingView usage={usage} loggedIn={!!user} admin={isAdmin} onLogin={() => setAuthOpen(true)} />
             : view === "history"
             ? <HistoryView loggedIn={!!user} onLogin={() => setAuthOpen(true)} onOpen={openFromHistory} refreshKey={historyKey} />
             : view === "compare"

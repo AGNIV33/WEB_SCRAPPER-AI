@@ -1,6 +1,6 @@
 import { getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider,
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, sendEmailVerification,
   type Auth, type User,
 } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
@@ -58,7 +58,16 @@ export async function login(email: string, password: string) {
 
 export async function signup(email: string, password: string) {
   if (!auth) throw new Error("Login is not configured");
-  try { await createUserWithEmailAndPassword(auth, email, password); } catch (e) { throw friendly(e); }
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await sendEmailVerification(cred.user).catch(() => {}); // proves the user owns the email
+  } catch (e) { throw friendly(e); }
+}
+
+/** Emails a link to set a new password (also adds a password to an account that was made with Google). */
+export async function resetPassword(email: string) {
+  if (!auth) throw new Error("Login is not configured");
+  try { await sendPasswordResetEmail(auth, email); } catch (e) { throw friendly(e); }
 }
 
 export async function logout() {

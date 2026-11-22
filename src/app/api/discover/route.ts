@@ -1,13 +1,14 @@
 import { rateLimit } from "@/lib/rateLimit";
 import * as cheerio from "cheerio";
 import { launchBrowser } from "@/lib/browser";
-import { authConfigured, checkQuota, getCaller, LIMITS, readUsage, siteKey } from "@/lib/serverAuth";
+import { authConfigured, checkQuota, getCaller, isAdmin, LIMITS, readUsage, siteKey } from "@/lib/serverAuth";
 import { assertPublicHost, cleanPageUrl, normalizeUrl, safeFetch, sameSite } from "@/lib/url";
 
 export const maxDuration = 60;
 
 /** Most pages the app will analyse in one run (each page = one headless-Chrome call). */
 const MAX_ANALYZE = 50;
+const MAX_ANALYZE_ADMIN = 200; // admin accounts: much bigger scans
 /** How many URLs we try to find when counting the site. */
 const COUNT_CAP = 500;
 
@@ -91,7 +92,8 @@ export async function POST(req: Request) {
     // Accounts: guests get 1 page; signed-in free users get 10 websites x 5 scans each
     const caller = authConfigured() ? await getCaller(req) : null;
     const guest = authConfigured() && !caller;
-    if (caller) {
+    const admin = isAdmin(caller);
+    if (caller && !admin) {
       const q = checkQuota(await readUsage(caller), siteKey(start.toString()));
       if (!q.ok) return Response.json({ error: q.message, paywall: q.reason }, { status: 402 });
     }
@@ -153,7 +155,7 @@ export async function POST(req: Request) {
       total,
       atLeast: crawlStopped || sm.truncated || found.size >= COUNT_CAP || rendered, // site may have even more pages
       sitemapCount: sm.urls.length,
-      maxAnalyze: guest ? LIMITS.guestPages : MAX_ANALYZE,
+      maxAnalyze: guest ? LIMITS.guestPages : admin ? MAX_ANALYZE_ADMIN : MAX_ANALYZE,
       guest,
       rendered, // true when links came from headless Chrome (JavaScript-only site)
       seconds: Math.round((Date.now() - started) / 100) / 10,

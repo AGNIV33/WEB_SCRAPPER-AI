@@ -7,7 +7,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 const JWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
 const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-export type Caller = { uid: string; email?: string; token: string } | null;
+export type Caller = { uid: string; email?: string; emailVerified?: boolean; token: string } | null;
 
 /** Returns the signed-in user, or null for guests (or if login isn't configured). */
 export async function getCaller(req: Request): Promise<Caller> {
@@ -16,11 +16,19 @@ export async function getCaller(req: Request): Promise<Caller> {
   if (!token || !projectId) return null;
   try {
     const { payload } = await jwtVerify(token, JWKS, { issuer: `https://securetoken.google.com/${projectId}`, audience: projectId });
-    return payload.sub ? { uid: payload.sub, email: payload.email as string | undefined, token } : null;
+    return payload.sub ? { uid: payload.sub, email: payload.email as string | undefined, emailVerified: payload.email_verified === true, token } : null;
   } catch {
     return null;
   }
 }
+
+/**
+ * Admin accounts: every feature, no plan limits, no rate limits. Set ADMIN_EMAILS (comma separated)
+ * in .env.local and in Vercel. The email must be verified (Google sign-in always is), so nobody can
+ * become admin by signing up with an admin address they do not own.
+ */
+const adminEmails = () => (process.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+export const isAdmin = (c: Caller) => !!c?.email && c.emailVerified === true && adminEmails().includes(c.email.toLowerCase());
 
 /** True when login is set up for this deployment (otherwise everyone gets full access, as before). */
 export const authConfigured = () => !!projectId && process.env.NEXT_PUBLIC_DISABLE_AUTH !== "1";
@@ -55,7 +63,7 @@ export const siteKey = (url: string) => { try { return new URL(url).hostname.rep
 
 /** Can this account scan this site? Returns a reason when blocked. */
 export function checkQuota(u: Usage, site: string): { ok: true } | { ok: false; reason: "sites" | "retries"; message: string } {
-  if (u.plan === "pro") return { ok: true };
+  if (u.plan === "pro" || u.plan === "admin") return { ok: true };
   const k = site.replace(/\./g, "_");
   const used = u.sites[k] || 0;
   if (used >= LIMITS.freeScansPerSite) return { ok: false, reason: "retries", message: `You have scanned this website ${used} times (free limit ${LIMITS.freeScansPerSite}).` };

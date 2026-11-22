@@ -164,6 +164,7 @@ Notes:
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | For login | Firebase web app config |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | For login | Firebase web app config |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | For login | Firebase web app config |
+| `ADMIN_EMAILS` | No | Admin accounts (comma separated, verified emails only): every feature, no plan or rate limits, up to 200 pages per scan |
 | `NEXT_PUBLIC_DISABLE_AUTH` | No | `1` turns login off and unlocks everything (for testing) |
 | `RATE_LIMIT` | No | `1` turns rate limiting on locally (it is always on on Vercel) |
 | `AI_DAILY_LIMIT` | No | Total AI calls per day across all users (default 300) |
