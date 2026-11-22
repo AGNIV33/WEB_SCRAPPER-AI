@@ -373,11 +373,11 @@ export default function App() {
             )}
             </div>
             <button type="button" data-tour="glass" onClick={() => updateSettings({ glass: !settings.glass })} aria-label="Toggle glass mode" title="Glass mode"
-              className={`ml-auto grid h-10 w-10 shrink-0 place-items-center rounded-xl border sm:ml-0 ${settings.glass ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-200" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"}`}>
-              <Droplets size={18} />
+              aria-pressed={settings.glass} className="tt tt-round ml-auto sm:ml-0">
+              <span className="tt-sheen" aria-hidden /><Droplets size={18} strokeWidth={2.2} className="tt-icon" />
             </button>
             <span data-tour="theme" className="contents"><ThemeToggle onToggle={() => { setManualTheme(true); updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }); }} /></span>
-            <button type="button" aria-label="Notifications" className="hidden h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 sm:grid dark:border-white/10 dark:bg-white/5 dark:text-slate-300"><Bell size={18} /></button>
+            <button type="button" aria-label="Notifications" title="Notifications" className="tt tt-round !hidden sm:!grid"><span className="tt-sheen" aria-hidden /><Bell size={18} strokeWidth={2.2} className="tt-icon" /></button>
             {authEnabled && (user ? (
               <div className="relative" data-tour="account">
                 <button type="button" onClick={() => setUserMenu((o) => !o)} aria-label="Account menu"
