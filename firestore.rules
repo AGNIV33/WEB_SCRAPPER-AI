@@ -1,7 +1,9 @@
 rules_version = '2';
 
-// Scrapper AI: each logged-in user can only read and write their own history.
-// Path: users/{userId}/analyses/{analysisId}
+// Scrapper AI security rules.
+// - users/{uid}/analyses: each user can only read and write their own history.
+// - users/{uid}/meta/usage: free-plan counters; owners can read, and counts can only go UP (no resetting).
+// - shares/{id}: public read-only report snapshots; only the owner can create or delete them.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId}/analyses/{analysisId} {
@@ -11,6 +13,28 @@ service cloud.firestore {
                     && request.resource.data.created_at == request.time;
       allow update: if false;
     }
+
+    match /users/{userId}/meta/usage {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId
+                    && !('plan' in request.resource.data)
+                    && request.resource.data.uniqueCount <= 1 && request.resource.data.total <= 1;
+      allow update: if request.auth != null && request.auth.uid == userId
+                    && !('plan' in request.resource.data.diff(resource.data).affectedKeys())
+                    && request.resource.data.uniqueCount >= resource.data.uniqueCount
+                    && request.resource.data.total == resource.data.total + 1
+                    && request.resource.data.sites.keys().hasAll(resource.data.sites.keys());
+      allow delete: if false;
+    }
+
+    match /shares/{shareId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.created_at == request.time;
+      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      allow update: if false;
+    }
+
     // Everything else is closed.
     match /{document=**} {
       allow read, write: if false;

@@ -35,6 +35,11 @@ export default function ChoosePages({ host, total, atLeast, max, initial, estima
           </div>
         </div>
 
+        {max === 1 && total > 1 && (
+          <p className="mb-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
+            Without an account you can analyse <b>1 page</b> (colours, fonts, animations and tech stack). <b>Sign in free</b> to analyse up to 50 pages and unlock everything.
+          </p>
+        )}
         <label className="mb-2 flex items-baseline justify-between text-sm font-medium">
           Pages to analyse <span className="text-2xl font-bold">{n}</span>
         </label>

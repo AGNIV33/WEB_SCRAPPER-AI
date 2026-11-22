@@ -1,6 +1,6 @@
 import { getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider,
   type Auth, type User,
 } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
@@ -43,6 +43,9 @@ const friendly = (e: unknown) => {
     "auth/too-many-requests": "Too many tries. Wait a minute and try again.",
     "auth/operation-not-allowed": "Email/password sign-in is not enabled in Firebase yet.",
     "auth/network-request-failed": "Network error. Check your connection.",
+    "auth/popup-closed-by-user": "The Google window was closed before signing in.",
+    "auth/popup-blocked": "Your browser blocked the Google window. Allow pop-ups for this site and try again.",
+    "auth/unauthorized-domain": "This website address is not allowed in Firebase yet (Authentication > Settings > Authorized domains).",
   };
   return new Error(map[code] || (e as Error).message);
 };
@@ -59,4 +62,15 @@ export async function signup(email: string, password: string) {
 
 export async function logout() {
   if (auth) await signOut(auth);
+}
+
+/** One-click Google sign-in (Google must be enabled in Firebase > Authentication > Sign-in method). */
+export async function loginWithGoogle() {
+  if (!auth) throw new Error("Login is not configured");
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (e) { throw friendly(e); }
+}
+
+/** Firebase ID token for the logged-in user (sent to our API so the server knows who is calling). */
+export async function idToken(): Promise<string | null> {
+  try { return (await auth?.currentUser?.getIdToken()) || null; } catch { return null; }
 }

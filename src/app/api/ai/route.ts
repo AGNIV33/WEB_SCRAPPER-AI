@@ -1,3 +1,4 @@
+import { authConfigured, getCaller } from "@/lib/serverAuth";
 import { aiBudgetLeft, rateLimit } from "@/lib/rateLimit";
 import { buildDesignMd, ruleSuggestions, type Summary } from "@/lib/report";
 
@@ -68,6 +69,10 @@ export async function POST(req: Request) {
 
   if (!process.env.NVIDIA_API_KEY) {
     return Response.json({ ai: false, note: "Add NVIDIA_API_KEY to get AI suggestions and AI design notes. Showing measured design.md and rule-based suggestions.", suggestions: rules, designMd: baseMd, about: aboutBase });
+  }
+  // Guests (when accounts are switched on) get the measured results without AI
+  if (authConfigured() && !(await getCaller(req))) {
+    return Response.json({ ai: false, note: "Sign in to unlock AI suggestions and the full design.md.", suggestions: rules, designMd: baseMd, about: aboutBase });
   }
   // Over the limit: still answer, just without AI (so the dashboard keeps working)
   const limited = await rateLimit(req, "ai");

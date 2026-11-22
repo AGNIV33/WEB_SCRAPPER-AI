@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces,
+  Link2, X, Bell, Moon, Sun, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock,
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
@@ -14,13 +14,19 @@ import Dashboard, { type AiResult, type View as DashView } from "@/components/Da
 import AuthModal from "@/components/AuthModal";
 import ChoosePages from "@/components/ChoosePages";
 import HistoryView from "@/components/HistoryView";
-import { authEnabled, logout as fbLogout, onUser, type User } from "@/lib/firebase";
+import { authEnabled, idToken, logout as fbLogout, onUser, type User } from "@/lib/firebase";
+import { getUsage, recordScan, type Usage } from "@/lib/usage";
+import { LockedView, PricingView } from "@/components/PlanViews";
+import CompareView from "@/components/CompareView";
+import ChangesView from "@/components/ChangesView";
 import { loadAnalysis, saveAnalysis } from "@/lib/history";
 
-type View = DashView | "history" | "settings";
+type View = DashView | "history" | "settings" | "pricing" | "compare" | "changes";
 
 type Phase = "idle" | "discover" | "choose" | "pages" | "links" | "ai" | "done";
-type Discovery = { root: string; pages: string[]; total: number; atLeast: boolean; sitemapCount: number; maxAnalyze: number };
+type Discovery = { root: string; pages: string[]; total: number; atLeast: boolean; sitemapCount: number; maxAnalyze: number; guest?: boolean };
+/** Views a guest (not signed in) may open; everything else shows a lock. */
+const GUEST_VIEWS: View[] = ["overview", "colors", "fonts", "animations", "tech", "settings", "pricing"];
 
 /** Pages scanned at the same time. Each one runs headless Chrome. */
 const CONCURRENCY = 2;
@@ -29,9 +35,14 @@ const SEC_PER_PAGE = 12, TAIL_SEC = 35; // tail = link check + AI
 export const estimateSeconds = (n: number) => Math.ceil(n / CONCURRENCY) * SEC_PER_PAGE + TAIL_SEC;
 export const fmtDuration = (s: number) => { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60); return m ? `${m} min ${s % 60 ? `${s % 60} s` : ""}`.trim() : `${s} s`; };
 
+class PaywallError extends Error { constructor(msg: string, public reason: string) { super(msg); } }
+
+/** POST to our API, with the user's login token (if signed in) so the server knows their plan. */
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const token = await idToken();
+  const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({ error: `Server error ${r.status}` }));
+  if (r.status === 402) throw new PaywallError(j.error, j.paywall);
   if (!r.ok && j.error) throw new Error(j.error);
   return j as T;
 }
@@ -51,7 +62,12 @@ const NAV: { id: View; label: string; icon: React.ElementType }[] = [
   { id: "design", label: "Design.md", icon: FileCode },
   { id: "code", label: "Tokens & Code", icon: Braces },
   { id: "tech", label: "Tech Stack", icon: Layers },
-  ...(authEnabled ? [{ id: "history" as View, label: "History", icon: History }] : []),
+  ...(authEnabled ? [
+    { id: "history" as View, label: "History", icon: History },
+    { id: "changes" as View, label: "What changed", icon: GitCompareArrows },
+    { id: "compare" as View, label: "Compare sites", icon: Columns2 },
+    { id: "pricing" as View, label: "Plans", icon: Crown },
+  ] : []),
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -74,6 +90,9 @@ export default function App() {
   const [view, setView] = useState<View>("overview");
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
+  const [guestRun, setGuestRun] = useState(false);
+  const isLocked = (v: View) => authEnabled && !user && !GUEST_VIEWS.includes(v);
   const [authOpen, setAuthOpen] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -84,7 +103,7 @@ export default function App() {
 
   // Keep the logged-in user in sync with Firebase Auth
   useEffect(() => {
-    return onUser(setUser);
+    return onUser((u) => { setUser(u); if (u) getUsage().then(setUsage); else setUsage(null); });
   }, []);
 
   async function openFromHistory(id: string) {
@@ -114,6 +133,7 @@ export default function App() {
       setPhase("discover"); say("Counting the pages on this site…");
       const disc = await post<Discovery>("/api/discover", { url });
       say(`Found ${disc.total}${disc.atLeast ? "+" : ""} page(s).`);
+      setGuestRun(!!disc.guest);
 
       // 2) Ask how many to analyse (with max and time estimate)
       setPhase("choose");
@@ -193,6 +213,7 @@ export default function App() {
       setPhase("done"); say("Done.");
       // Save to history when logged in
       if (user) {
+        recordScan(disc.root).then(() => getUsage().then(setUsage)).catch(() => {});
         setSaveState("saving");
         saveAnalysis({ pages: results, site: siteRes.error ? null : siteRes, summary: s, ai: aiRes, seconds })
           .then(() => { setSaveState("saved"); setHistoryKey((k) => k + 1); })
@@ -201,6 +222,7 @@ export default function App() {
     } catch (err) {
       setError((err as Error).message);
       setPhase("idle");
+      if (err instanceof PaywallError) setView("pricing");
     }
   }
 
@@ -255,7 +277,8 @@ export default function App() {
           {NAV.map(({ id, label, icon: Icon }) => (
             <button key={id} onClick={() => { setView(id); setMenuOpen(false); }} title={mini ? label : undefined}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${mini ? "lg:justify-center lg:px-0" : ""} ${view === id ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/25" : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"}`}>
-              <Icon size={18} className="shrink-0" /> <span className={mini ? "lg:hidden" : ""}>{label}</span>
+              <Icon size={18} className="shrink-0" /> <span className={`flex-1 text-left ${mini ? "lg:hidden" : ""}`}>{label}</span>
+              {isLocked(id) && <Lock size={13} className={`shrink-0 opacity-60 ${mini ? "lg:hidden" : ""}`} />}
             </button>
           ))}
         </nav>
@@ -339,11 +362,19 @@ export default function App() {
                 : null}
             </div>
           )}
-          {view === "settings"
+          {isLocked(view)
+            ? <LockedView onLogin={() => setAuthOpen(true)} />
+            : view === "settings"
             ? <SettingsView settings={settings} update={updateSettings} reset={resetSettings} hasSite={pages.some((p) => p.screenshot)} />
+            : view === "pricing"
+            ? <PricingView usage={usage} loggedIn={!!user} onLogin={() => setAuthOpen(true)} />
             : view === "history"
             ? <HistoryView loggedIn={!!user} onLogin={() => setAuthOpen(true)} onOpen={openFromHistory} refreshKey={historyKey} />
-            : <Dashboard view={view} setView={setView} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} onRecrawl={recrawl} />}
+            : view === "compare"
+            ? <CompareView current={summary ? { summary, pages, ai } : null} />
+            : view === "changes"
+            ? <ChangesView current={summary && meta ? { summary, pages, ai, meta } : null} historyKey={historyKey} onRescan={(u: string) => { setUrl(u); setTimeout(() => formRef.current?.requestSubmit(), 50); }} />
+            : <Dashboard view={view} setView={setView} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} onRecrawl={recrawl} guest={authEnabled && !user && guestRun} onLogin={() => setAuthOpen(true)} />}
         </main>
       </div>
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
