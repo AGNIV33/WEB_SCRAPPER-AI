@@ -62,3 +62,6 @@ body {
 /* Hide scrollbars but keep scrolling (sidebar) */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* URL box slides into the top bar once a scan starts */
+@keyframes topbar-in { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }

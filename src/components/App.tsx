@@ -19,6 +19,7 @@ import { getUsage, recordScan, type Usage } from "@/lib/usage";
 import { LockedView, PricingView } from "@/components/PlanViews";
 import CompareView from "@/components/CompareView";
 import ChangesView from "@/components/ChangesView";
+import HeroSearch from "@/components/HeroSearch";
 import { loadAnalysis, saveAnalysis } from "@/lib/history";
 
 type View = DashView | "history" | "settings" | "pricing" | "compare" | "changes";
@@ -85,7 +86,8 @@ export default function App() {
   // Sidebar categories that are open (remembered in this browser). Default: Design open.
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => { try { return new Set(JSON.parse(localStorage.getItem("navGroups") || "[\"design\"]")); } catch { return new Set(["design"]); } });
   const toggleGroup = (id: string) => setOpenGroups((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); try { localStorage.setItem("navGroups", JSON.stringify([...n])); } catch { /* ignore */ } return n; });
-  const [url, setUrl] = useState("");
+  const [urlState, setUrl] = useState("");
+  const url = urlState;
   const [limit, setLimit] = useState(() => readSettings().defaultPages);
   const [phase, setPhase] = useState<Phase>("idle");
   const [log, setLog] = useState<string[]>([]);
@@ -112,6 +114,8 @@ export default function App() {
   const stopRef = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
   const busy = phase !== "idle" && phase !== "done";
+  /** A scan has started or results are on screen: the URL box moves from the page centre to the top bar. */
+  const started = busy || pages.length > 0 || !!summary;
 
   // Keep the logged-in user in sync with Firebase Auth
   useEffect(() => {
@@ -134,9 +138,11 @@ export default function App() {
   }
   const say = (m: string) => setLog((l) => [...l.slice(-4), m]);
 
-  async function run(e: React.FormEvent) {
-    e.preventDefault();
-    if (!url.trim() || busy) return;
+  async function run(e?: React.FormEvent, override?: string) {
+    e?.preventDefault();
+    const url = (override ?? urlState).trim();
+    if (!url || busy) return;
+    if (override) setUrl(override);
     stopRef.current = false;
     const t0 = new Date();
     setError(null); setPages([]); setSite(null); setSummary(null); setAi(null); setLog([]); setMeta(null); setView("overview"); setSaveState("idle");
@@ -339,7 +345,8 @@ export default function App() {
             {/* phone: logo on the first row, URL + Analyze on their own full-width second row */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <span className="flex items-center gap-2 sm:hidden"><img src="/logo-mark.svg" alt="" className="h-7 w-7" /><span className="text-sm font-bold"><span className="text-[#1e1b4b] dark:text-white">Scrapper</span> <span className="text-violet-500">AI</span></span></span>
-            <div className="order-last flex w-full min-w-0 gap-2 sm:order-none sm:w-auto sm:flex-1 sm:gap-3">
+            {!started && <div className="flex-1" />}
+            <div className={`order-last flex w-full min-w-0 gap-2 sm:order-none sm:w-auto sm:flex-1 sm:gap-3 ${started ? "animate-[topbar-in_.5s_ease-out]" : "hidden"}`}>
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm focus-within:border-indigo-400 dark:border-white/10 dark:bg-white/5">
               <Link2 size={18} className="shrink-0 text-slate-400" />
               <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Enter website URL, e.g. https://example.com" disabled={busy}
@@ -429,6 +436,8 @@ export default function App() {
             ? <CompareView current={summary ? { summary, pages, ai } : null} />
             : view === "changes"
             ? <ChangesView current={summary && meta ? { summary, pages, ai, meta } : null} historyKey={historyKey} onRescan={(u: string) => { setUrl(u); setTimeout(() => formRef.current?.requestSubmit(), 50); }} />
+            : !started && !isLocked(view)
+            ? <HeroSearch url={url} setUrl={setUrl} onStart={(u) => run(undefined, u)} />
             : <Dashboard view={view} setView={setView} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} onRecrawl={recrawl} guest={authEnabled && !user && guestRun} onLogin={() => setAuthOpen(true)} />}
         </main>
       </div>
