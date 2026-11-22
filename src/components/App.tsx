@@ -330,7 +330,7 @@ export default function App() {
       if (user) {
         recordScan(disc.root).then(() => getUsage().then(setUsage)).catch(() => {});
         setSaveState("saving");
-        saveAnalysis({ pages: results, site: siteRes.error ? null : siteRes, summary: s, ai: aiRes, seconds })
+        saveAnalysis({ pages: results, site: siteRes.error ? null : siteRes, summary: s, ai: aiRes, seconds, rootUrl: disc.root })
           .then(() => { setSaveState("saved"); setHistoryKey((k) => k + 1); notify.push({ kind: "info", title: "Saved to your history", body: host, view: "history" }); })
           .catch((e) => { setSaveState("error"); setError(`Could not save to history: ${e.message}`); trackEvent({ type: "error", where: "save", message: e.message }); notify.push({ kind: "error", title: "Could not save to history", body: e.message }); });
       }

@@ -36,12 +36,28 @@ function compactPages(pages: PageResult[], level: number): PageResult[] {
   });
 }
 
-export async function saveAnalysis(args: { pages: PageResult[]; site: SiteResult | null; summary: Summary; ai: AiResult | null; seconds: number }) {
+/** Website name for an analysis: the address that was scanned, or (older entries saved without it) the first page that has an address. */
+const hostOf = (u: unknown) => { try { return new URL(String(u)).hostname; } catch { return ""; } };
+function hostFromDoc(v: Record<string, unknown>): { host: string; url: string } {
+  const direct = hostOf(v.url) || (typeof v.host === "string" && v.host.includes(".") ? v.host : "");
+  if (direct) return { host: direct, url: String(v.url || `https://${direct}`) };
+  try {
+    const pages = JSON.parse(String(v.pagesJson || "[]")) as { url?: string; finalUrl?: string }[];
+    const p = pages.find((x) => hostOf(x.finalUrl) || hostOf(x.url));
+    if (p) { const u = p.finalUrl || p.url!; return { host: hostOf(u), url: u }; }
+    const s = JSON.parse(String(v.summaryJson || "{}")) as { url?: string };
+    if (hostOf(s.url)) return { host: hostOf(s.url), url: s.url! };
+  } catch { /* ignore */ }
+  return { host: "", url: "" };
+}
+
+export async function saveAnalysis(args: { pages: PageResult[]; site: SiteResult | null; summary: Summary; ai: AiResult | null; seconds: number; rootUrl?: string }) {
   const c = col();
   const favicon = args.pages.find((p) => p.faviconData)?.faviconData || null;
-  const host = (() => { try { return new URL(args.summary.url || args.pages[0].url).hostname; } catch { return args.pages[0]?.url || ""; } })();
+  const url = args.rootUrl || args.summary.url || args.pages.find((p) => p.url)?.url || "";
+  const host = hostOf(url);
   const base = {
-    url: args.summary.url || args.pages[0]?.url || "", host,
+    url, host,
     created_at: serverTimestamp(), duration_s: args.seconds, pages_count: args.summary.pagesAnalyzed,
     security_score: args.summary.security.score, seo_score: args.summary.seoScore,
     favicon: favicon && favicon.length < 60_000 ? favicon : null,
@@ -62,7 +78,7 @@ export async function listAnalyses(): Promise<HistoryItem[]> {
   return snap.docs.map((d) => {
     const v = d.data();
     return {
-      id: d.id, url: v.url, host: v.host,
+      id: d.id, ...hostFromDoc(v),
       created_at: (v.created_at as Timestamp | null)?.toDate().toISOString() || new Date().toISOString(),
       duration_s: v.duration_s ?? null, pages_count: v.pages_count ?? null,
       security_score: v.security_score ?? null, seo_score: v.seo_score ?? null, favicon: v.favicon ?? null,
