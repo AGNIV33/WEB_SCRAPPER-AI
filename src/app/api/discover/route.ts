@@ -1,7 +1,7 @@
 import { rateLimit } from "@/lib/rateLimit";
 import * as cheerio from "cheerio";
 import { launchBrowser } from "@/lib/browser";
-import { authConfigured, checkQuota, getCaller, isAdmin, LIMITS, readUsage, siteKey } from "@/lib/serverAuth";
+import { authConfigured, checkQuota, getCaller, isAdmin, isBlocked, LIMITS, readUsage, siteKey } from "@/lib/serverAuth";
 import { assertPublicHost, cleanPageUrl, normalizeUrl, safeFetch, sameSite } from "@/lib/url";
 
 export const maxDuration = 60;
@@ -93,6 +93,7 @@ export async function POST(req: Request) {
     const caller = authConfigured() ? await getCaller(req) : null;
     const guest = authConfigured() && !caller;
     const admin = isAdmin(caller);
+    if (caller && !admin && (await isBlocked(caller))) return Response.json({ error: "This account has been removed. Please contact support." }, { status: 403 });
     if (caller && !admin) {
       const q = checkQuota(await readUsage(caller), siteKey(start.toString()));
       if (!q.ok) return Response.json({ error: q.message, paywall: q.reason }, { status: 402 });

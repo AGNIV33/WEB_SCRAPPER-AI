@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown,
+  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, MessageSquare, ShieldCheck, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown,
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
@@ -24,15 +24,20 @@ import ChangesView from "@/components/ChangesView";
 import HeroSearch from "@/components/HeroSearch";
 import ThemeToggle from "@/components/ThemeToggle";
 import NotificationBell from "@/components/NotificationBell";
+import AdminView from "@/components/AdminView";
+import ContactView from "@/components/ContactView";
+import { isAccountBlocked, startHeartbeat, touchProfile, trackEvent } from "@/lib/track";
+import { myFeedback, markRepliesSeen, replyKey, seenReplies } from "@/lib/feedback";
+import { watchNewFeedback } from "@/lib/admin";
 import { useNotifications } from "@/lib/notify";
 import { loadAnalysis, saveAnalysis } from "@/lib/history";
 
-type View = DashView | "history" | "settings" | "pricing" | "compare" | "changes";
+type View = DashView | "history" | "settings" | "pricing" | "compare" | "changes" | "admin" | "contact";
 
 type Phase = "idle" | "discover" | "choose" | "pages" | "links" | "ai" | "done";
 type Discovery = { root: string; pages: string[]; total: number; atLeast: boolean; sitemapCount: number; maxAnalyze: number; guest?: boolean };
 /** Views a guest (not signed in) may open; everything else shows a lock. */
-const GUEST_VIEWS: View[] = ["overview", "colors", "fonts", "animations", "tech", "settings", "pricing"];
+const GUEST_VIEWS: View[] = ["overview", "colors", "fonts", "animations", "tech", "settings", "pricing", "contact"];
 
 /** Pages scanned at the same time. Each one runs headless Chrome. */
 const CONCURRENCY = 2;
@@ -44,7 +49,9 @@ export const fmtDuration = (s: number) => { s = Math.max(0, Math.round(s)); cons
 class PaywallError extends Error { constructor(msg: string, public reason: string) { super(msg); } }
 
 /** POST to our API, with the user's login token (if signed in) so the server knows their plan. */
+let apiCalls = 0; // API calls made during the current scan (recorded for the admin dashboard)
 async function post<T>(path: string, body: unknown): Promise<T> {
+  apiCalls++;
   const token = await idToken();
   const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({ error: r.status === 504 ? "This page took too long to load (over 60 s)." : `Server error ${r.status}` }));
@@ -84,7 +91,7 @@ const NAV_GROUPS: { id: string; title?: string; icon?: React.ElementType; items:
     { id: "compare" as View, label: "Compare sites", icon: Columns2 },
     { id: "pricing" as View, label: "Plans", icon: Crown },
   ] }] : []),
-  { id: "end", items: [{ id: "settings", label: "Settings", icon: SettingsIcon }] },
+  { id: "end", items: [...(authEnabled ? [{ id: "contact" as View, label: "Contact us", icon: MessageSquare }] : []), { id: "settings" as View, label: "Settings", icon: SettingsIcon }] },
 ];
 
 export default function App() {
@@ -120,6 +127,7 @@ export default function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
   const notify = useNotifications(user?.uid ?? null);
+  const pushNote = notify.push;
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [historyKey, setHistoryKey] = useState(0);
   const stopRef = useRef(false);
@@ -134,6 +142,18 @@ export default function App() {
       setUser(u);
       if (u) getUsage().then(setUsage); else setUsage(null);
       setIsAdmin(false);
+      if (u) {
+        // removed accounts are signed out; everyone else gets their profile refreshed for the admin dashboard
+        isAccountBlocked(u.uid).then((blocked) => {
+          if (blocked) { fbLogout(); setError("This account has been removed by the admin. Please contact support."); return; }
+          touchProfile(u);
+          myFeedback().then((list) => {
+            const seen = seenReplies(u.uid);
+            list.filter((f) => f.reply && !seen.has(replyKey(f))).forEach((f) => pushNote({ kind: "info", title: "Reply to your message", body: `${f.subject}: ${f.reply!.slice(0, 120)}`, view: "contact" }));
+            markRepliesSeen(u.uid, list);
+          }).catch(() => {});
+        });
+      }
       if (u) idToken().then((t) => fetch("/api/me", { headers: t ? { authorization: `Bearer ${t}` } : {} })).then((r) => r.json()).then((j) => setIsAdmin(!!j.admin)).catch(() => {});
       // Quick tour: once, for accounts created in the last 24 hours
       try {
@@ -141,7 +161,30 @@ export default function App() {
         if (u && isNew && !localStorage.getItem(`tourDone:${u.uid}`)) setTimeout(() => setTourOpen(true), 900);
       } catch { /* ignore */ }
     });
-  }, []);
+  }, [pushNote]);
+
+  // Time spent: one minute added for every minute the app is open and in focus
+  const uid = user?.uid;
+  useEffect(() => { if (!uid) return; return startHeartbeat(); }, [uid]);
+
+  // Admin: new feedback shows up in the bell and as a badge on the sidebar item
+  const [newFeedback, setNewFeedback] = useState(0);
+  const navGroups = useMemo<typeof NAV_GROUPS>(() => (isAdmin ? [...NAV_GROUPS.slice(0, -1), { id: "admin", items: [{ id: "admin" as View, label: "Admin dashboard", icon: ShieldCheck }] }, NAV_GROUPS[NAV_GROUPS.length - 1]] : NAV_GROUPS), [isAdmin]);
+  const inboxCount = isAdmin ? newFeedback : 0;
+  useEffect(() => {
+    if (!isAdmin || !uid) return;
+    const key = `seenFeedback:${uid}`;
+    return watchNewFeedback((items) => {
+      setNewFeedback(items.length);
+      let seen: string[] = [];
+      try { seen = JSON.parse(localStorage.getItem(key) || "[]"); } catch { /* ignore */ }
+      const fresh = items.filter((f) => !seen.includes(f.id));
+      if (!fresh.length) return;
+      if (fresh.length <= 3) fresh.forEach((f) => pushNote({ kind: f.type === "issue" ? "warning" : "info", title: `${f.type === "issue" ? "New issue" : "New feedback"} from ${f.email || "a user"}`, body: f.subject, view: "admin" }));
+      else pushNote({ kind: "info", title: `${fresh.length} new messages`, body: "Open the Admin dashboard, then Feedback.", view: "admin" });
+      try { localStorage.setItem(key, JSON.stringify([...seen, ...fresh.map((f) => f.id)].slice(-300))); } catch { /* ignore */ }
+    });
+  }, [isAdmin, uid, pushNote]);
 
   async function openFromHistory(id: string) {
     setError(null);
@@ -165,6 +208,7 @@ export default function App() {
     if (!url || busy) return;
     if (override) setUrl(override);
     stopRef.current = false;
+    apiCalls = 0;
     const t0 = new Date();
     setError(null); setPages([]); setSite(null); setSummary(null); setAi(null); setLog([]); setMeta(null); setView("overview"); setSaveState("idle");
     try {
@@ -259,6 +303,7 @@ export default function App() {
       notify.push(stopRef.current
         ? { kind: "warning", title: `Scan of ${host} stopped`, body: `${okPages} page(s) were analysed before you stopped it.`, view: "overview" }
         : { kind: "success", title: `${host} is ready`, body: `${okPages} of ${results.length} page(s) analysed in ${Math.round(seconds)}s. Security ${s.security.score}/100, SEO ${s.seoScore}/100.`, view: "overview" });
+      trackEvent({ type: "scan", host, pagesOk: okPages, pagesFailed: results.length - okPages, lite: results.filter((r) => r.lite).length, seconds: Math.round(seconds), apiCalls, ai: !!aiRes.ai, status: stopRef.current ? "stopped" : "ok" });
       if (okPages < results.length) notify.push({ kind: "warning", title: `${results.length - okPages} page(s) could not be scanned`, body: "They are listed on the Pages screen. Try again later or scan fewer pages.", view: "pages" });
       if (aiRes.error) notify.push({ kind: "warning", title: "AI suggestions were skipped", body: aiRes.error, view: "suggestions" });
       // Save to history when logged in
@@ -267,13 +312,17 @@ export default function App() {
         setSaveState("saving");
         saveAnalysis({ pages: results, site: siteRes.error ? null : siteRes, summary: s, ai: aiRes, seconds })
           .then(() => { setSaveState("saved"); setHistoryKey((k) => k + 1); notify.push({ kind: "info", title: "Saved to your history", body: host, view: "history" }); })
-          .catch((e) => { setSaveState("error"); setError(`Could not save to history: ${e.message}`); notify.push({ kind: "error", title: "Could not save to history", body: e.message }); });
+          .catch((e) => { setSaveState("error"); setError(`Could not save to history: ${e.message}`); trackEvent({ type: "error", where: "save", message: e.message }); notify.push({ kind: "error", title: "Could not save to history", body: e.message }); });
       }
     } catch (err) {
       setError((err as Error).message);
       setPhase("idle");
       if (err instanceof PaywallError) { setView("pricing"); notify.push({ kind: "warning", title: "Free plan limit reached", body: (err as Error).message, view: "pricing" }); }
-      else notify.push({ kind: "error", title: "Scan failed", body: (err as Error).message });
+      else {
+        notify.push({ kind: "error", title: "Scan failed", body: (err as Error).message });
+        let h = ""; try { h = new URL(url).hostname.replace(/^www\./, ""); } catch { /* ignore */ }
+        trackEvent({ type: "scan", host: h, status: "error", apiCalls, message: (err as Error).message });
+      }
     }
   }
 
@@ -318,7 +367,7 @@ export default function App() {
           </button>
         </div>
         <nav data-tour="nav" className="no-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
-          {NAV_GROUPS.map((g) => {
+          {navGroups.map((g) => {
             // a group is open if the user opened it, or it holds the current page
             const open = !g.title || mini || openGroups.has(g.id) || g.items.some((i) => i.id === view);
             const GIcon = g.icon;
@@ -341,6 +390,7 @@ export default function App() {
                       <button key={id} data-tour={id === "settings" ? "settings" : undefined} onClick={() => { setView(id); setMenuOpen(false); }} title={mini ? label : undefined} tabIndex={open ? 0 : -1}
                         className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${mini ? "lg:justify-center lg:px-0" : ""} ${view === id ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/25" : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"}`}>
                         <Icon size={18} className="shrink-0" /> <span className={`flex-1 text-left ${mini ? "lg:hidden" : ""}`}>{label}</span>
+                        {id === "admin" && inboxCount > 0 && <span className={`rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white ${mini ? "lg:hidden" : ""}`}>{inboxCount}</span>}
                         {isLocked(id) && <Lock size={13} className={`shrink-0 opacity-60 ${mini ? "lg:hidden" : ""}`} />}
                       </button>
                     ))}
@@ -451,6 +501,10 @@ export default function App() {
           )}
           {isLocked(view)
             ? <LockedView onLogin={() => setAuthOpen(true)} />
+            : view === "admin"
+            ? (isAdmin ? <AdminView currentUid={uid} /> : <p className="rounded-xl border border-slate-200 p-6 text-center text-sm text-slate-500 dark:border-white/10">This page is only for the admin account.</p>)
+            : view === "contact"
+            ? <ContactView user={user} onLogin={() => setAuthOpen(true)} context={summary?.url ? (() => { try { return new URL(summary.url).hostname; } catch { return ""; } })() : ""} notify={notify.push} />
             : view === "settings"
             ? <SettingsView settings={settings} update={updateSettings} reset={resetSettings} hasSite={pages.some((p) => p.screenshot)} onTour={() => { setView("overview"); setTimeout(() => setTourOpen(true), 300); }} />
             : view === "pricing"

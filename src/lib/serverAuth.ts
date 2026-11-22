@@ -58,6 +58,16 @@ export async function readUsage(c: NonNullable<Caller>): Promise<Usage> {
   }
 }
 
+/** True if the admin removed this account (blocked/{uid} exists; owners may read their own block document). */
+export async function isBlocked(c: NonNullable<Caller>): Promise<boolean> {
+  try {
+    const r = await fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/blocked/${c.uid}`, { headers: { authorization: `Bearer ${c.token}` } });
+    return r.ok; // 200 = the block document exists, 404 = not blocked
+  } catch {
+    return false;
+  }
+}
+
 /** Usage key for a website: hostname without "www." */
 export const siteKey = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, "").toLowerCase(); } catch { return url; } };
 

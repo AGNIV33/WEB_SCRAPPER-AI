@@ -1,4 +1,4 @@
-import { authConfigured, getCaller, isAdmin } from "@/lib/serverAuth";
+import { authConfigured, getCaller, isAdmin, isBlocked } from "@/lib/serverAuth";
 import { aiBudgetLeft, rateLimit } from "@/lib/rateLimit";
 import { buildDesignMd, ruleSuggestions, type Summary } from "@/lib/report";
 
@@ -72,6 +72,7 @@ export async function POST(req: Request) {
   }
   // Guests (when accounts are switched on) get the measured results without AI
   const caller = authConfigured() ? await getCaller(req) : null;
+  if (caller && !isAdmin(caller) && (await isBlocked(caller))) return Response.json({ error: "This account has been removed. Please contact support." }, { status: 403 });
   if (authConfigured() && !caller) {
     return Response.json({ ai: false, note: "Sign in to unlock AI suggestions and the full design.md.", suggestions: rules, designMd: baseMd, about: aboutBase });
   }

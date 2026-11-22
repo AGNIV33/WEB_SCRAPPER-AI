@@ -1,37 +1,105 @@
 rules_version = '2';
 
 // Scrapper AI security rules.
-// - users/{uid}/analyses: each user can only read and write their own history.
+//
+// ADMIN: replace ADMIN_EMAIL_HERE below with your admin email (several are allowed: 'a@x.com', 'b@y.com').
+// Only a VERIFIED email (Google sign-in always is) counts as admin. Admins can read usage data, handle
+// feedback, change plans and remove users. They can NOT read other people's saved analyses.
+//
+// - users/{uid}:            profile + counters (sign-ins, time spent). Owner writes only safe fields.
+// - users/{uid}/analyses:   each user's own history. Only the owner can read; the admin can delete (account removal).
 // - users/{uid}/meta/usage: free-plan counters; owners can read, and counts can only go UP (no resetting).
-// - shares/{id}: public read-only report snapshots; only the owner can create or delete them.
+//                           The plan field can only be changed by the admin.
+// - events/{id}:            usage events (scans, errors). Users add their own; only the admin reads.
+// - feedback/{id}:          messages from the Contact us page. Owner reads their own; only the admin changes them.
+// - blocked/{uid}:          accounts removed by the admin.
+// - shares/{id}:            public read-only report snapshots; only the owner (or admin) can delete them.
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+    function isAdmin() {
+      return signedIn() && request.auth.token.email_verified == true
+        && request.auth.token.email in ['ADMIN_EMAIL_HERE'];
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId)
+                    && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt', 'lastSeen', 'logins', 'timeSpentSec'])
+                    && request.resource.data.get('logins', 0) <= 1
+                    && request.resource.data.get('timeSpentSec', 0) <= 120
+                    && request.resource.data.get('email', '') in ['', request.auth.token.email];
+      allow update: if (isOwner(userId)
+                    && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt', 'lastSeen', 'logins', 'timeSpentSec'])
+                    && request.resource.data.get('logins', 0) - resource.data.get('logins', 0) in [0, 1]
+                    && request.resource.data.get('timeSpentSec', 0) - resource.data.get('timeSpentSec', 0) >= 0
+                    && request.resource.data.get('timeSpentSec', 0) - resource.data.get('timeSpentSec', 0) <= 120
+                    && request.resource.data.get('email', '') in ['', request.auth.token.email])
+                    || isAdmin();
+      allow delete: if isAdmin();
+    }
+
     match /users/{userId}/analyses/{analysisId} {
-      allow read, delete: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId
+      allow read: if isOwner(userId);
+      allow delete: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId)
                     && request.resource.data.keys().hasAll(['url', 'host', 'created_at', 'summaryJson', 'pagesJson'])
                     && request.resource.data.created_at == request.time;
       allow update: if false;
     }
 
     match /users/{userId}/meta/usage {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId)
                     && !('plan' in request.resource.data)
                     && request.resource.data.uniqueCount <= 1 && request.resource.data.total <= 1;
-      allow update: if request.auth != null && request.auth.uid == userId
+      allow update: if isOwner(userId)
                     && !('plan' in request.resource.data.diff(resource.data).affectedKeys())
                     && request.resource.data.uniqueCount >= resource.data.uniqueCount
                     && request.resource.data.total == resource.data.total + 1
                     && request.resource.data.sites.keys().hasAll(resource.data.sites.keys());
-      allow delete: if false;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Lets the admin dashboard read every user's usage counters in one query.
+    match /{path=**}/meta/{doc} {
+      allow read: if isAdmin();
+    }
+
+    match /events/{eventId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if signedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.at == request.time
+                    && request.resource.data.type in ['scan', 'error']
+                    && request.resource.data.keys().hasOnly(['uid', 'type', 'at', 'host', 'pagesOk', 'pagesFailed', 'lite', 'seconds', 'apiCalls', 'ai', 'status', 'where', 'message'])
+                    && request.resource.data.get('message', '').size() <= 300;
+    }
+
+    match /feedback/{feedbackId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'new'
+                    && request.resource.data.createdAt == request.time
+                    && request.resource.data.type in ['feedback', 'issue', 'idea']
+                    && request.resource.data.keys().hasOnly(['uid', 'email', 'name', 'type', 'subject', 'message', 'view', 'ua', 'status', 'createdAt'])
+                    && request.resource.data.subject.size() >= 1 && request.resource.data.subject.size() <= 120
+                    && request.resource.data.message.size() >= 1 && request.resource.data.message.size() <= 4000;
+      allow update, delete: if isAdmin();
+    }
+
+    match /blocked/{blockedUid} {
+      allow read: if isOwner(blockedUid) || isAdmin();
+      allow write: if isAdmin();
     }
 
     match /shares/{shareId} {
       allow read: if true;
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid
                     && request.resource.data.created_at == request.time;
-      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      allow delete: if signedIn() && (resource.data.ownerUid == request.auth.uid || isAdmin());
       allow update: if false;
     }
 

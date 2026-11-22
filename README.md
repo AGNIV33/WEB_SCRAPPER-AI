@@ -59,6 +59,12 @@ Built with Next.js, headless Chrome and a free NVIDIA AI model. Crafted by **Agn
 - **What changed:** compare a new scan of a site with an earlier one and see what changed.
 - **Share link:** create a read-only public link to a report.
 
+### Admin dashboard and Contact us
+- **Contact us:** every signed-in user can send feedback, report an issue or suggest an idea. They can follow the status (sent, seen, resolved) and read the admin's reply.
+- **Admin dashboard** (only for the admin account, in the sidebar): overall usage, new users, scans and websites crawled per user, API calls per account, error rate overall and per user, time spent, email, free or paid plan, and graphs (scans, API calls, new users and errors per day, free vs paid, most scanned websites).
+- **User management:** search and sort users, switch a user between the free and paid plan, remove or restore an account, export the user list as CSV.
+- **Feedback inbox:** read messages, reply, mark as resolved or delete. New messages show a badge in the sidebar and a notification in the bell.
+
 ### Exports
 - **PDF:** a formal, detailed report with screenshots.
 - **Excel**, **Markdown**, **HTML**, **CSV**, **JSON**, and a **ZIP** of everything.
@@ -134,7 +140,8 @@ Login is optional. Without the Firebase values the app runs without accounts.
 2. In **Authentication → Sign-in method**, enable **Email/Password** and **Google**.
 3. In **Authentication → Settings → Authorized domains**, add your Vercel domain (for example `your-app.vercel.app`).
 4. Create a **Firestore** database. Paste the contents of `firestore.rules` into **Firestore → Rules** and publish. Do this again whenever `firestore.rules` changes.
-5. Add the four `NEXT_PUBLIC_FIREBASE_*` values (from **Project settings → Your apps → Web app**) to `.env.local` and to Vercel.
+5. Admin dashboard: in the rules you paste, replace `ADMIN_EMAIL_HERE` with your admin email (it is checked by the database itself, so it is not visible in the app).
+6. Add the four `NEXT_PUBLIC_FIREBASE_*` values (from **Project settings → Your apps → Web app**) to `.env.local` and to Vercel.
 
 Each user can only read and write their own data. This is enforced by the Firestore rules and by checking the user's ID token on the server.
 

@@ -42,3 +42,6 @@ next-env.d.ts
 
 !.env.example
 
+
+# your private copy of firestore.rules with the admin email filled in
+firestore.rules.local
