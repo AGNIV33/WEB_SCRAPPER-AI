@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { History, Trash2, Shield, Search, FileText, LogIn, RefreshCw } from "lucide-react";
 import { deleteAnalysis, listAnalyses, type HistoryItem } from "@/lib/history";
+import { shrinkIcon } from "@/lib/shrinkIcon";
 
 const tone = (n: number | null) => (n == null ? "bg-slate-100 text-slate-600" : n >= 80 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" : n >= 50 ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" : "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300");
 
@@ -19,6 +20,27 @@ export default function HistoryView({ loggedIn, onLogin, onOpen, refreshKey }: {
     listAnalyses().then((d) => { if (live) { setItems(d); setError(null); } }).catch((e) => { if (live) setError(e.message); });
     return () => { live = false; };
   }, [loggedIn, refreshKey, reload]);
+
+  // Older saves (or very large logos) have no stored logo: look it up once and remember it in this browser
+  const [icons, setIcons] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let live = true;
+    const missing = [...new Map((items || []).filter((i) => !i.favicon && i.host).map((i) => [i.host, i.url || i.host])).entries()];
+    missing.forEach(([host, url]) => {
+      const key = `siteIcon:${host}`;
+      let cached: string | null = null;
+      try { cached = localStorage.getItem(key); } catch { /* ignore */ }
+      if (cached) { setIcons((m) => ({ ...m, [host]: cached! })); return; }
+      fetch("/api/favicon", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url }) })
+        .then((r) => r.json()).then(async (j) => {
+          if (!j.icon || !live) return;
+          const icon = await shrinkIcon(j.icon);
+          try { localStorage.setItem(key, icon); } catch { /* storage full: still show it */ }
+          if (live) setIcons((m) => ({ ...m, [host]: icon }));
+        }).catch(() => {});
+    });
+    return () => { live = false; };
+  }, [items]);
 
   const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
 
@@ -51,7 +73,7 @@ export default function HistoryView({ loggedIn, onLogin, onOpen, refreshKey }: {
               <div className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/20">
-                    {i.favicon ? <img src={i.favicon} alt="" className="h-7 w-7 object-contain" /> : <span className="grid h-full w-full place-items-center bg-gradient-to-br from-indigo-500 to-violet-500 text-base font-bold uppercase text-white">{(i.host || "?").replace(/^www\./, "")[0]}</span>}
+                    {(i.favicon || icons[i.host]) ? <img src={i.favicon || icons[i.host]} alt="" className="h-7 w-7 object-contain" /> : <span className="grid h-full w-full place-items-center bg-gradient-to-br from-indigo-500 to-violet-500 text-base font-bold uppercase text-white">{(i.host || "?").replace(/^www\./, "")[0]}</span>}
                   </div>
                   <div className="min-w-0">
                     <div className="truncate font-semibold">{i.host}</div>

@@ -2,6 +2,7 @@ import {
   addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, Timestamp,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
+import { shrinkIcon } from "./shrinkIcon";
 import type { PageResult, SiteResult, Summary } from "./report";
 import type { AiResult } from "@/components/Dashboard";
 
@@ -53,7 +54,8 @@ function hostFromDoc(v: Record<string, unknown>): { host: string; url: string } 
 
 export async function saveAnalysis(args: { pages: PageResult[]; site: SiteResult | null; summary: Summary; ai: AiResult | null; seconds: number; rootUrl?: string }) {
   const c = col();
-  const favicon = args.pages.find((p) => p.faviconData)?.faviconData || null;
+  const raw = args.pages.find((p) => p.faviconData)?.faviconData || null;
+  const favicon = raw ? await shrinkIcon(raw) : null;
   const url = args.rootUrl || args.summary.url || args.pages.find((p) => p.url)?.url || "";
   const host = hostOf(url);
   const base = {
