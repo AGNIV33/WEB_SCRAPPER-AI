@@ -17,7 +17,11 @@ export default function ShareButton({ data }: { data: ExportData }) {
   async function make() {
     if (!auth?.currentUser) { setErr("Sign in to create a share link."); return; }
     setBusy(true); setErr(null);
-    try { setLink(await createShare(data)); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+    try { setLink(await createShare(data)); } catch (e) {
+      const m = (e as Error).message || "";
+      // "Missing or insufficient permissions" = the live Firestore rules do not include share links yet
+      setErr(/permission/i.test(m) ? "Sharing is not switched on yet: the latest database rules are not published. In Firebase, open Firestore Database, then Rules, paste the latest firestore.rules and click Publish." : m);
+    } finally { setBusy(false); }
   }
 
   return (
