@@ -47,9 +47,11 @@ class PaywallError extends Error { constructor(msg: string, public reason: strin
 async function post<T>(path: string, body: unknown): Promise<T> {
   const token = await idToken();
   const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
-  const j = await r.json().catch(() => ({ error: `Server error ${r.status}` }));
+  const j = await r.json().catch(() => ({ error: r.status === 504 ? "This page took too long to load (over 60 s)." : `Server error ${r.status}` }));
+  // Some hosts return { error: { code, message } } instead of a string
+  if (j.error && typeof j.error !== "string") j.error = r.status === 504 ? "This page took too long to load (over 60 s)." : j.error.message || `Server error ${r.status}`;
   if (r.status === 402) throw new PaywallError(j.error, j.paywall);
-  if (!r.ok && j.error) throw new Error(j.error);
+  if (!r.ok) throw new Error(j.error || `Server error ${r.status}`);
   return j as T;
 }
 
@@ -187,7 +189,8 @@ export default function App() {
       setProgress({ done: 0, total: queue.length, started: scanStart });
       const rootHost = new URL(disc.root).hostname.replace(/^www\./, "");
       const order = (a: PageResult, b: PageResult) => queue.indexOf(a.url) - queue.indexOf(b.url);
-      const scanOne = (u: string) => post<PageResult>("/api/page", { url: u, mobile: u === disc.root }).catch((e): PageResult => ({ url: u, error: e.message }));
+      // Always keep the URL we asked for, so a failed page still shows which page it was
+      const scanOne = (u: string) => post<PageResult>("/api/page", { url: u, mobile: u === disc.root }).then((r) => ({ ...r, url: r.url || u })).catch((e): PageResult => ({ url: u, error: e.message || "Could not scan this page" }));
       let idx = 0;
       const worker = async () => {
         while (idx < queue.length && !stopRef.current) {

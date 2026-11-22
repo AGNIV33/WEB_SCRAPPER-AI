@@ -1,5 +1,5 @@
 import { rateLimit } from "@/lib/rateLimit";
-import type { Page, HTTPRequest } from "puppeteer-core";
+import type { Page, HTTPRequest, HTTPResponse } from "puppeteer-core";
 import { launchBrowser } from "@/lib/browser";
 import { EXTRACT_SCRIPT } from "@/lib/extractScript";
 import { assertPublicHost, normalizeUrl, safeFetch } from "@/lib/url";
@@ -8,6 +8,11 @@ import { checkLibrary } from "@/lib/vulnDb";
 export const maxDuration = 60;
 
 const PRIVATE_LITERAL = /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?|0\.0\.0\.0)/i;
+
+/** Rejects if a browser step hangs, so one slow page can't use up the whole function time. */
+function within<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("This page is very heavy and took too long to respond. Try scanning it again on its own.")), Math.max(500, ms)))]);
+}
 
 async function autoScroll(page: Page) {
   await page.evaluate(`(async () => {
@@ -23,6 +28,11 @@ export async function POST(req: Request) {
   const { url, mobile } = await req.json();
   let browser;
   let lastShot: string | null = null; // kept so even a failed page still returns its screenshot
+  // Time budget: Vercel stops the function at 60 s, so slow steps are skipped when time runs short
+  const started = Date.now();
+  const left = () => 52_000 - (Date.now() - started);
+  const timings: Record<string, number> = {};
+  const mark = (k: string) => { timings[k] = Date.now() - started; };
   try {
     const target = normalizeUrl(url);
     await assertPublicHost(target);
@@ -46,8 +56,10 @@ export async function POST(req: Request) {
     // Every image / GIF / video the browser actually downloads (also carousel slides, lazy images,
     // hero videos and CSS images that the page HTML doesn't list directly).
     const netMedia = new Map<string, { mime: string; size: number }>();
+    let mainResp: HTTPResponse | null = null; // main document response (kept even if the page never finishes loading)
     page.on("response", (res) => {
       try {
+        if (res.request().isNavigationRequest() && res.frame() === page.mainFrame()) mainResp = res;
         const t = res.request().resourceType();
         if (t !== "image" && t !== "media") return;
         const url = res.url();
@@ -68,25 +80,31 @@ export async function POST(req: Request) {
     })()`);
 
     const t0 = Date.now();
-    const resp = await page.goto(target.toString(), { waitUntil: "networkidle2", timeout: 30000 }).catch(async (e) => {
-      // fall back: page may never be "idle" (websockets, polling)
-      if (String(e).includes("timeout")) return null;
+    // Wait for "load" rather than network idle: busy sites (trackers, chat widgets, video) never go idle.
+    // Then give the network a few seconds to settle.
+    const gotoResp = await page.goto(target.toString(), { waitUntil: "load", timeout: 25000 }).catch(async (e) => {
+      if (String(e).includes("timeout")) return null; // heavy page: carry on with what has loaded
       throw e;
     });
     const loadMs = Date.now() - t0;
-    await autoScroll(page).catch(() => {});
+    await page.waitForNetworkIdle({ idleTime: 500, timeout: Math.max(1000, Math.min(6000, left() - 35000)) }).catch(() => {});
+    const resp = gotoResp ?? (mainResp as HTTPResponse | null);
+    mark("load");
+    if (left() > 30000) await within(autoScroll(page), 6000).catch(() => {});
     await new Promise((r) => setTimeout(r, 400));
 
     // Screenshot FIRST, so every page that loads gets one even if data extraction fails later.
     // Full page (capped height); if that fails (huge/odd pages), fall back to the visible viewport.
     let shot: string;
     try {
-      const height = Math.min(((await page.evaluate("document.documentElement.scrollHeight")) as number) || 800, 3600);
-      shot = (await page.screenshot({ type: "jpeg", quality: 55, clip: { x: 0, y: 0, width: 1280, height: Math.max(height, 800) }, captureBeyondViewport: true, encoding: "base64" })) as string;
+      const height = Math.min(((await within(page.evaluate("document.documentElement.scrollHeight"), 4000)) as number) || 800, 3600);
+      shot = (await within(page.screenshot({ type: "jpeg", quality: 55, clip: { x: 0, y: 0, width: 1280, height: Math.max(height, 800) }, captureBeyondViewport: true, encoding: "base64" }), 12000)) as string;
     } catch {
-      shot = (await page.screenshot({ type: "jpeg", quality: 60, encoding: "base64" })) as string;
+      // heavy pages (WebGL, huge images) can stall a full-page capture: take the visible screen instead
+      shot = (await within(page.screenshot({ type: "jpeg", quality: 60, encoding: "base64" }), 8000)) as string;
     }
     lastShot = shot;
+    mark("screenshot");
 
     type Extracted = Record<string, unknown> & {
       tech: { name: string; version: string | null }[];
@@ -96,16 +114,18 @@ export async function POST(req: Request) {
     };
     let data: Extracted;
     try {
-      data = (await page.evaluate(EXTRACT_SCRIPT)) as Extracted;
-    } catch {
+      data = (await within(page.evaluate(EXTRACT_SCRIPT), Math.max(8000, left() - 10000))) as Extracted;
+    } catch (e) {
+      if (String(e).includes("took too long")) throw new Error("This page is too heavy to read in time. Its screenshot was kept.");
       // page may have navigated (JS redirect); wait and try once more
       await new Promise((r) => setTimeout(r, 1500));
-      data = (await page.evaluate(EXTRACT_SCRIPT)) as Extracted;
+      data = (await within(page.evaluate(EXTRACT_SCRIPT), Math.max(6000, left() - 8000))) as Extracted;
     }
+    mark("extract");
 
     // Core Web Vitals (lab measurement). INP needs a real user's clicks, so we report Total Blocking Time,
     // the lab metric Google uses as INP's stand-in in Lighthouse.
-    const cwv = (await page.evaluate("window.__cwv || null").catch(() => null)) as { lcp: number | null; cls: number; tbt: number; fcp: number | null } | null;
+    const cwv = (await within(page.evaluate("window.__cwv || null"), 3000).catch(() => null)) as { lcp: number | null; cls: number; tbt: number; fcp: number | null } | null;
     const rate = (v: number | null, good: number, poor: number) => (v == null ? "n/a" : v <= good ? "good" : v <= poor ? "needs-improvement" : "poor");
     const vitals = cwv ? {
       lcp: cwv.lcp, cls: Math.round(cwv.cls * 1000) / 1000, tbt: Math.round(cwv.tbt), fcp: cwv.fcp,
@@ -114,14 +134,14 @@ export async function POST(req: Request) {
 
     // Accessibility audit with axe-core (WCAG 2 A/AA rules), max ~15 s
     let a11y: { violations: { id: string; impact: string | null; help: string; description: string; helpUrl: string; count: number; targets: string[] }[]; passes: number } | null = null;
-    try {
+    if (left() > 22000) try {
       const axe = (await import("axe-core")).default;
-      await page.evaluate(axe.source);
+      await within(page.evaluate(axe.source), 5000);
       const res = (await Promise.race([
         page.evaluate(`axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] }, resultTypes: ['violations'] }).then(r => ({
           violations: r.violations.map(v => ({ id: v.id, impact: v.impact, help: v.help, description: v.description, helpUrl: v.helpUrl, count: v.nodes.length, targets: v.nodes.slice(0, 3).map(n => String(n.target[0]).slice(0, 120)) })),
           passes: r.passes.length }))`),
-        new Promise((r) => setTimeout(() => r(null), 15000)),
+        new Promise((r) => setTimeout(() => r(null), Math.min(15000, left() - 12000))),
       ])) as typeof a11y;
       a11y = res;
     } catch { a11y = null; }
@@ -129,14 +149,14 @@ export async function POST(req: Request) {
     // Tablet + mobile screenshots for every page (first screen of each device)
     const deviceShot = async (w: number, h: number) => {
       try {
-        await page.setViewport({ width: w, height: h, isMobile: true, deviceScaleFactor: 1, hasTouch: true });
+        await within(page.setViewport({ width: w, height: h, isMobile: true, deviceScaleFactor: 1, hasTouch: true }), 4000);
         await page.evaluate("window.scrollTo(0,0)");
         await new Promise((r) => setTimeout(r, 600));
-        return (await page.screenshot({ type: "jpeg", quality: 60, encoding: "base64" })) as string;
+        return (await within(page.screenshot({ type: "jpeg", quality: 60, encoding: "base64" }), 5000)) as string;
       } catch { return null; }
     };
-    const tabletShot = await deviceShot(768, 1024);
-    const mobileShot = await deviceShot(390, 844);
+    const tabletShot = left() > 9000 ? await deviceShot(768, 1024) : null;
+    const mobileShot = left() > 6000 ? await deviceShot(390, 844) : null;
 
     // Merge network media into the page's media list; label GIFs, videos and SVGs by their real file type
     {
@@ -162,11 +182,12 @@ export async function POST(req: Request) {
       (data as unknown as { media: M[] }).media = list.slice(0, 400);
     }
 
-    const cookies = await page.cookies().catch(() => []);
+    mark("devices");
+    const cookies = await within(page.cookies(), 3000).catch(() => []);
 
     // Fetch the favicon on the server and embed it, so it shows even when the site blocks hotlinking.
     let faviconData: string | null = null;
-    if (mobile) {
+    if (mobile && left() > 4000) {
       const seo = (data as { seo?: { favicon?: string | null } }).seo;
       for (const src of [seo?.favicon, new URL("/favicon.ico", page.url()).toString()].filter(Boolean) as string[]) {
         try {
@@ -205,7 +226,7 @@ export async function POST(req: Request) {
       screenshot: "data:image/jpeg;base64," + shot,
       mobileScreenshot: mobileShot ? "data:image/jpeg;base64," + mobileShot : null,
       tabletScreenshot: tabletShot ? "data:image/jpeg;base64," + tabletShot : null,
-      vitals, a11y,
+      vitals, a11y, timings,
       faviconData,
       ...data,
       requestsByType: requests.reduce<Record<string, number>>((a, r) => ((a[r.type] = (a[r.type] || 0) + 1), a), {}),
@@ -224,6 +245,6 @@ export async function POST(req: Request) {
   } catch (e) {
     return Response.json({ url, error: (e as Error).message, screenshot: lastShot ? "data:image/jpeg;base64," + lastShot : undefined }, { status: 200 });
   } finally {
-    if (browser) await browser.close().catch(() => {});
+    if (browser) await within(browser.close(), 3000).catch(() => {});
   }
 }

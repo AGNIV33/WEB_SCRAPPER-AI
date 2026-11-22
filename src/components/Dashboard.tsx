@@ -246,9 +246,9 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
   if (!pages.length && !busy) return <div ref={root}><Empty /></div>;
 
   const header = (
-    // relative z-30: the glass blur makes this panel its own layer, so it must sit above the cards below,
+    // relative z-10 (below the sticky top bar at z-20): the glass blur makes this panel its own layer, so it must sit above the cards below,
     // otherwise the Export menu opens *behind* them
-    <div className="glass-panel relative z-30 mb-6 flex flex-wrap items-center gap-4 rounded-2xl border border-transparent p-3">{/* gets a frosted panel in glass mode so the title stays readable */}
+    <div className="glass-panel relative z-10 mb-6 flex flex-wrap items-center gap-4 rounded-2xl border border-transparent p-3">{/* gets a frosted panel in glass mode so the title stays readable */}
       <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5">
         <Favicon key={home?.url} srcs={[home?.faviconData, home?.seo?.favicon].filter(Boolean) as string[]} />
       </div>
@@ -591,7 +591,7 @@ function PagesTable({ pages, full }: { pages: PageResult[]; full?: boolean }) {
               <td className="max-w-[220px] py-2.5 pr-3"><span className="flex items-center gap-1.5"><Link2 size={14} className="shrink-0 text-indigo-500" /><span className="truncate">{pathOf(p.url)}</span></span></td>
               {full && <td className="max-w-[280px] truncate pr-3">{p.seo?.title || "—"}</td>}
               <td className="pr-3">{p.seo?.wordCount?.toLocaleString() ?? "—"}</td>
-              <td>{p.error ? <Badge tone="red">Error</Badge> : <Badge tone={p.status && p.status < 400 ? "green" : "amber"}>{p.status ?? "?"}</Badge>}</td>
+              <td title={p.error || undefined}>{p.error ? <Badge tone="red">Error</Badge> : <Badge tone={p.status && p.status < 400 ? "green" : "amber"}>{p.status ?? "?"}</Badge>}</td>
             </tr>
           ))}
         </tbody>
