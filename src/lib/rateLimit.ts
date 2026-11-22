@@ -18,6 +18,7 @@ export const RULES = {
   page: { limit: 200, windowSec: 3600 },
   site: { limit: 30, windowSec: 3600 },
   links: { limit: 30, windowSec: 3600 },
+  favicon: { limit: 60, windowSec: 3600 },
   ai: { limit: 15, windowSec: 3600 },
   media: { limit: 600, windowSec: 3600 }, // media downloads (one call per file)
 } satisfies Record<string, Rule>;

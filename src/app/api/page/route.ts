@@ -2,8 +2,9 @@ import { rateLimit } from "@/lib/rateLimit";
 import type { Page, HTTPRequest, HTTPResponse } from "puppeteer-core";
 import { launchBrowser } from "@/lib/browser";
 import { EXTRACT_SCRIPT } from "@/lib/extractScript";
-import { assertPublicHost, normalizeUrl, safeFetch } from "@/lib/url";
+import { assertPublicHost, normalizeUrl } from "@/lib/url";
 import { checkLibrary } from "@/lib/vulnDb";
+import { fetchBestIcon, rankIcons } from "@/lib/favicon";
 
 export const maxDuration = 60;
 
@@ -193,19 +194,9 @@ export async function POST(req: Request) {
     // Fetch the favicon on the server and embed it, so it shows even when the site blocks hotlinking.
     let faviconData: string | null = null;
     if (mobile && left() > 4000) {
-      const seo = (data as { seo?: { favicon?: string | null } }).seo;
-      for (const src of [seo?.favicon, new URL("/favicon.ico", page.url()).toString()].filter(Boolean) as string[]) {
-        try {
-          if (src.startsWith("data:")) { faviconData = src; break; }
-          const { res } = await safeFetch(src, { timeoutMs: 6000 });
-          const type = res.headers.get("content-type") || "";
-          const buf = Buffer.from(await res.arrayBuffer());
-          if (res.ok && buf.length > 0 && buf.length < 200_000 && /image|icon|octet/.test(type)) {
-            faviconData = `data:${type.split(";")[0] || "image/x-icon"};base64,${buf.toString("base64")}`;
-            break;
-          }
-        } catch { /* try next */ }
-      }
+      const seo = (data as { seo?: { favicon?: string | null; icons?: { href: string; rel?: string; sizes?: string; type?: string }[] } }).seo;
+      const links = seo?.icons?.length ? seo.icons : seo?.favicon ? [{ href: seo.favicon, rel: "icon" }] : [];
+      faviconData = await within(fetchBestIcon(rankIcons(links, page.url()), 3500), 9000).catch(() => null);
     }
     const finalUrl = page.url();
     const isHttps = finalUrl.startsWith("https://");

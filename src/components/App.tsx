@@ -118,6 +118,7 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [siteIcon, setSiteIcon] = useState<string | null>(null); // logo of the analysed website
   const [isAdmin, setIsAdmin] = useState(false); // admin account: unlimited (decided by the server)
   const [avatarBroken, setAvatarBroken] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
@@ -210,13 +211,15 @@ export default function App() {
     stopRef.current = false;
     apiCalls = 0;
     const t0 = new Date();
-    setError(null); setPages([]); setSite(null); setSummary(null); setAi(null); setLog([]); setMeta(null); setView("overview"); setSaveState("idle");
+    setError(null); setSiteIcon(null); setPages([]); setSite(null); setSummary(null); setAi(null); setLog([]); setMeta(null); setView("overview"); setSaveState("idle");
     try {
       // 1) Count the site's pages first
       setPhase("discover"); say("Counting the pages on this site…");
       const disc = await post<Discovery>("/api/discover", { url });
       say(`Found ${disc.total}${disc.atLeast ? "+" : ""} page(s).`);
       setGuestRun(!!disc.guest);
+      // Logo lookup runs next to the page scan, so the logo shows up straight away (and even if the home page is very heavy)
+      const iconPromise = post<{ icon: string | null }>("/api/favicon", { url: disc.root }).then((r) => { if (r.icon) setSiteIcon(r.icon); return r.icon; }).catch(() => null);
 
       // 2) Ask how many to analyse (with max and time estimate)
       setPhase("choose");
@@ -289,6 +292,8 @@ export default function App() {
       const allLinks = [...new Set(results.flatMap((p) => (p.links || []).map((l) => l.href.split("#")[0])))];
       const links = await post<LinksResult>("/api/links", { links: allLinks }).catch(() => null);
 
+      const icon = await iconPromise;
+      if (icon && results[0] && !results.some((r) => r.faviconData)) results[0].faviconData = icon; // kept for history, exports and sharing
       const s = buildSummary(results, siteRes.error ? null : siteRes, links);
       setSummary(s);
 
@@ -517,7 +522,7 @@ export default function App() {
             ? <ChangesView current={summary && meta ? { summary, pages, ai, meta } : null} historyKey={historyKey} onRescan={(u: string) => { setUrl(u); setTimeout(() => formRef.current?.requestSubmit(), 50); }} />
             : !started && !isLocked(view)
             ? <HeroSearch url={url} setUrl={setUrl} onStart={(u) => run(undefined, u)} />
-            : <Dashboard view={view} setView={setView} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} onRecrawl={recrawl} guest={authEnabled && !user && guestRun} onLogin={() => setAuthOpen(true)} />}
+            : <Dashboard view={view} setView={setView} siteIcon={siteIcon} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} onRecrawl={recrawl} guest={authEnabled && !user && guestRun} onLogin={() => setAuthOpen(true)} />}
         </main>
       </div>
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}

@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
-import { History, Trash2, Globe, Shield, Search, FileText, LogIn, RefreshCw } from "lucide-react";
+import { History, Trash2, Shield, Search, FileText, LogIn, RefreshCw } from "lucide-react";
 import { deleteAnalysis, listAnalyses, type HistoryItem } from "@/lib/history";
 
 const tone = (n: number | null) => (n == null ? "bg-slate-100 text-slate-600" : n >= 80 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" : n >= 50 ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" : "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300");
@@ -50,8 +50,8 @@ export default function HistoryView({ loggedIn, onLogin, onOpen, refreshKey }: {
             <button onClick={() => onOpen(i.id)} className="block w-full text-left">
               <div className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
-                    {i.favicon ? <img src={i.favicon} alt="" className="h-6 w-6 object-contain" /> : <Globe size={20} className="text-indigo-500" />}
+                  <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/20">
+                    {i.favicon ? <img src={i.favicon} alt="" className="h-7 w-7 object-contain" /> : <span className="grid h-full w-full place-items-center bg-gradient-to-br from-indigo-500 to-violet-500 text-base font-bold uppercase text-white">{(i.host || "?").replace(/^www\./, "")[0]}</span>}
                   </div>
                   <div className="min-w-0">
                     <div className="truncate font-semibold">{i.host}</div>

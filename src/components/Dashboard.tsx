@@ -27,7 +27,7 @@ export type AiResult = {
 };
 type Props = {
   view: View; setView: (v: View) => void; pages: PageResult[]; site: SiteResult | null; summary: Summary | null;
-  ai: AiResult | null; busy: boolean; meta: { startedAt: Date; seconds: number } | null; onRecrawl?: () => void; guest?: boolean; onLogin?: () => void; readOnly?: boolean;
+  ai: AiResult | null; busy: boolean; meta: { startedAt: Date; seconds: number } | null; onRecrawl?: () => void; guest?: boolean; onLogin?: () => void; readOnly?: boolean; siteIcon?: string | null;
 };
 
 /** Re-crawl action for saved analyses (they have no screenshots). */
@@ -209,7 +209,7 @@ const Dashboard = memo(function Dashboard(props: Props) {
 });
 export default Dashboard;
 
-function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta, guest, onLogin, readOnly }: Props) {
+function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta, guest, onLogin, readOnly, siteIcon }: Props) {
   /** Guests see these cards blurred with a "Sign in" button. */
   const lock = (meta: { title: string; icon: React.ElementType; teaser: string; compact?: boolean }, node: React.ReactNode) => (guest && onLogin ? <LockedCard onLogin={onLogin} {...meta} /> : node);
   useGoogleFonts(s?.typography.families.map((f) => f.value) || []);
@@ -249,8 +249,8 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
     // relative z-10 (below the sticky top bar at z-20): the glass blur makes this panel its own layer, so it must sit above the cards below,
     // otherwise the Export menu opens *behind* them
     <div className="glass-panel relative z-10 mb-6 flex flex-wrap items-center gap-4 rounded-2xl border border-transparent p-3">{/* gets a frosted panel in glass mode so the title stays readable */}
-      <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5">
-        <Favicon key={home?.url} srcs={[home?.faviconData, home?.seo?.favicon].filter(Boolean) as string[]} />
+      <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/20">
+        <Favicon key={`${home?.url}|${siteIcon ? 1 : 0}`} host={hostOf(home?.finalUrl || pages[0]?.url)} srcs={[home?.faviconData, siteIcon, home?.seo?.favicon].filter(Boolean) as string[]} />
       </div>
       <div className="min-w-0">
         <a href={home?.finalUrl || pages[0]?.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xl font-bold hover:text-indigo-600">
@@ -518,10 +518,11 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
 }
 
 /** Site icon: tries each source, falls back to a globe if none loads. */
-function Favicon({ srcs }: { srcs: string[] }) {
+function Favicon({ srcs, host }: { srcs: string[]; host: string }) {
   const [i, setI] = useState(0);
-  if (i >= srcs.length) return <Globe size={22} className="text-indigo-500" />;
-  return <img src={srcs[i]} alt="" className="h-7 w-7 object-contain" onError={() => setI((x) => x + 1)} />;
+  // no logo found: the site's first letter on the brand gradient (instead of a plain globe)
+  if (i >= srcs.length) return <span className="grid h-full w-full place-items-center bg-gradient-to-br from-indigo-500 to-violet-500 text-lg font-bold uppercase text-white">{host.replace(/^www\./, "")[0] || "?"}</span>;
+  return <img src={srcs[i]} alt="" className="h-8 w-8 object-contain" onError={() => setI((x) => x + 1)} />;
 }
 
 /** "About this website": one line when closed, full AI description when expanded. */

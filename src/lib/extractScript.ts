@@ -268,6 +268,7 @@ export const EXTRACT_SCRIPT = String.raw`
       robots: meta('robots'), viewport: meta('viewport'),
       ogTitle: meta('og:title'), ogDescription: meta('og:description'), ogImage: meta('og:image'), twitterCard: meta('twitter:card'),
       favicon: (document.querySelector('link[rel~="icon"]') || {}).href || null,
+      icons: [...document.querySelectorAll('link[rel*="icon"]')].slice(0, 12).map((l) => ({ href: l.href, rel: (l.getAttribute('rel') || '').toLowerCase(), sizes: l.getAttribute('sizes') || '', type: l.getAttribute('type') || '' })),
       h1: heads('h1'), h2: heads('h2'), h3: heads('h3').slice(0, 10),
       wordCount: bodyText.split(/\s+/).filter(Boolean).length,
       images: imgs.length, imagesNoAlt: imgs.filter((i) => !i.hasAttribute('alt')).length,

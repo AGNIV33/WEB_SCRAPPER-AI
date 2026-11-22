@@ -33,7 +33,7 @@ export type PageResult = {
   tech?: { name: string; version: string | null }[];
   seo?: {
     title: string; description: string | null; lang: string | null; canonical: string | null; robots: string | null; viewport: string | null;
-    ogTitle: string | null; ogDescription: string | null; ogImage: string | null; twitterCard: string | null; favicon: string | null;
+    ogTitle: string | null; ogDescription: string | null; ogImage: string | null; twitterCard: string | null; favicon: string | null; icons?: { href: string; rel?: string; sizes?: string; type?: string }[];
     h1: string[]; h2: string[]; h3: string[]; wordCount: number; images: number; imagesNoAlt: number; jsonLd: string[];
   };
   links?: { href: string; text: string; blank: boolean; rel: string }[];
