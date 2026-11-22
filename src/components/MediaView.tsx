@@ -4,6 +4,7 @@
 import { useMemo, useState } from "react";
 import { Image as ImageIcon, Film, Music, Shapes, Layers, Star, Download, Eye, CheckSquare, Square, Loader2, Info, Archive, Sparkles } from "lucide-react";
 import Lightbox, { type LightboxItem } from "@/components/Lightbox";
+import { Package } from "lucide-react";
 import type { MediaItem, PageResult } from "@/lib/report";
 
 type Item = MediaItem & { pages: string[] };
@@ -87,7 +88,7 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
     }
   }
 
-  async function downloadZip(list: Item[]) {
+  async function downloadZip(list: Item[], folderOf: (it: Item) => string = (it) => `${it.type}s`, zipName = `${host}-media.zip`) {
     const JSZip = (await import("jszip")).default;
     const zip = new JSZip();
     const failed: Item[] = [];
@@ -99,7 +100,7 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
         const i = idx++, it = list[i];
         try {
           const b = await getBlob(it);
-          let name = `${it.type}s/${fileName(it, i, b.type)}`;
+          let name = `${folderOf(it)}/${fileName(it, i, b.type)}`;
           for (let k = 2; names.has(name); k++) name = name.replace(/(\.\w+)?$/, `-${k}$1`);
           names.add(name);
           zip.file(name, b);
@@ -109,9 +110,16 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
     };
     await Promise.all(Array.from({ length: 4 }, worker));
     if (failed.length) zip.file("NOT-INCLUDED.txt", "These files were too big (over 4 MB) or blocked by the website. Open them directly:\n\n" + failed.map((f) => f.url).join("\n"));
-    save(`${host}-media.zip`, await zip.generateAsync({ type: "blob" }));
+    save(zipName, await zip.generateAsync({ type: "blob" }));
     setBusy(null);
     setNote(`Downloaded ${list.length - failed.length} of ${list.length} files.${failed.length ? ` ${failed.length} were too big or blocked; their links are in NOT-INCLUDED.txt inside the ZIP.` : ""}`);
+  }
+
+  /** Brand asset kit: logo(s), favicons/app icons, SVG icons and images (no backgrounds/videos), sorted into folders. */
+  function downloadKit() {
+    const isLogo = (it: Item) => /logo|brand|wordmark/i.test(it.url + " " + (it.alt || ""));
+    const kit = items.filter((it) => it.type !== "video" && it.type !== "audio" && it.type !== "background" && !tiny(it));
+    downloadZip(kit, (it) => (it.type === "icon" ? "favicon" : isLogo(it) ? "logo" : it.type === "svg" ? "svg-icons" : it.type === "gif" ? "gifs" : "images"), `${host}-asset-kit.zip`);
   }
 
   if (!items.length) {
@@ -136,6 +144,10 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
           <button onClick={() => setSel((s) => { const n = new Set(s); shown.forEach((it) => (allSel ? n.delete(it.url) : n.add(it.url))); return n; })}
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-white/10">
             {allSel ? <CheckSquare size={16} /> : <Square size={16} />} {allSel ? "Unselect all" : `Select all (${shown.length})`}
+          </button>
+          <button disabled={!!busy} onClick={downloadKit} title="Logo, favicons, SVG icons and all images in one ZIP"
+            className="inline-flex items-center gap-2 rounded-xl border border-indigo-300 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-40 dark:border-indigo-400/40 dark:text-indigo-200 dark:hover:bg-white/5">
+            <Package size={16} /> Asset kit (.zip)
           </button>
           <button disabled={!sel.size || !!busy} onClick={() => downloadZip(items.filter((it) => sel.has(it.url)))}
             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 disabled:opacity-40">

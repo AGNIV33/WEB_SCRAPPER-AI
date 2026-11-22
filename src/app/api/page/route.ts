@@ -58,6 +58,15 @@ export async function POST(req: Request) {
       } catch { /* ignore */ }
     });
 
+    // Core Web Vitals (lab): observers start before the page's own code runs
+    await page.evaluateOnNewDocument(`(() => {
+      const v = (window.__cwv = { lcp: null, cls: 0, tbt: 0, fcp: null });
+      try { new PerformanceObserver((l) => { const e = l.getEntries(); if (e.length) v.lcp = Math.round(e[e.length - 1].startTime); }).observe({ type: 'largest-contentful-paint', buffered: true }); } catch {}
+      try { new PerformanceObserver((l) => l.getEntries().forEach((e) => { if (!e.hadRecentInput) v.cls += e.value; })).observe({ type: 'layout-shift', buffered: true }); } catch {}
+      try { new PerformanceObserver((l) => l.getEntries().forEach((e) => { v.tbt += Math.max(0, e.duration - 50); })).observe({ type: 'longtask', buffered: true }); } catch {}
+      try { new PerformanceObserver((l) => l.getEntries().forEach((e) => { if (e.name === 'first-contentful-paint') v.fcp = Math.round(e.startTime); })).observe({ type: 'paint', buffered: true }); } catch {}
+    })()`);
+
     const t0 = Date.now();
     const resp = await page.goto(target.toString(), { waitUntil: "networkidle2", timeout: 30000 }).catch(async (e) => {
       // fall back: page may never be "idle" (websockets, polling)
@@ -94,12 +103,40 @@ export async function POST(req: Request) {
       data = (await page.evaluate(EXTRACT_SCRIPT)) as Extracted;
     }
 
-    let mobileShot: string | null = null;
-    if (mobile) {
-      await page.setViewport({ width: 390, height: 844, isMobile: true, deviceScaleFactor: 1, hasTouch: true });
-      await new Promise((r) => setTimeout(r, 500));
-      mobileShot = (await page.screenshot({ type: "jpeg", quality: 60, encoding: "base64" })) as string;
-    }
+    // Core Web Vitals (lab measurement). INP needs a real user's clicks, so we report Total Blocking Time,
+    // the lab metric Google uses as INP's stand-in in Lighthouse.
+    const cwv = (await page.evaluate("window.__cwv || null").catch(() => null)) as { lcp: number | null; cls: number; tbt: number; fcp: number | null } | null;
+    const rate = (v: number | null, good: number, poor: number) => (v == null ? "n/a" : v <= good ? "good" : v <= poor ? "needs-improvement" : "poor");
+    const vitals = cwv ? {
+      lcp: cwv.lcp, cls: Math.round(cwv.cls * 1000) / 1000, tbt: Math.round(cwv.tbt), fcp: cwv.fcp,
+      ratings: { lcp: rate(cwv.lcp, 2500, 4000), cls: rate(cwv.cls, 0.1, 0.25), tbt: rate(cwv.tbt, 200, 600), fcp: rate(cwv.fcp, 1800, 3000) },
+    } : null;
+
+    // Accessibility audit with axe-core (WCAG 2 A/AA rules), max ~15 s
+    let a11y: { violations: { id: string; impact: string | null; help: string; description: string; helpUrl: string; count: number; targets: string[] }[]; passes: number } | null = null;
+    try {
+      const axe = (await import("axe-core")).default;
+      await page.evaluate(axe.source);
+      const res = (await Promise.race([
+        page.evaluate(`axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] }, resultTypes: ['violations'] }).then(r => ({
+          violations: r.violations.map(v => ({ id: v.id, impact: v.impact, help: v.help, description: v.description, helpUrl: v.helpUrl, count: v.nodes.length, targets: v.nodes.slice(0, 3).map(n => String(n.target[0]).slice(0, 120)) })),
+          passes: r.passes.length }))`),
+        new Promise((r) => setTimeout(() => r(null), 15000)),
+      ])) as typeof a11y;
+      a11y = res;
+    } catch { a11y = null; }
+
+    // Tablet + mobile screenshots for every page (first screen of each device)
+    const deviceShot = async (w: number, h: number) => {
+      try {
+        await page.setViewport({ width: w, height: h, isMobile: true, deviceScaleFactor: 1, hasTouch: true });
+        await page.evaluate("window.scrollTo(0,0)");
+        await new Promise((r) => setTimeout(r, 600));
+        return (await page.screenshot({ type: "jpeg", quality: 60, encoding: "base64" })) as string;
+      } catch { return null; }
+    };
+    const tabletShot = await deviceShot(768, 1024);
+    const mobileShot = await deviceShot(390, 844);
 
     // Merge network media into the page's media list; label GIFs, videos and SVGs by their real file type
     {
@@ -167,6 +204,8 @@ export async function POST(req: Request) {
       headers,
       screenshot: "data:image/jpeg;base64," + shot,
       mobileScreenshot: mobileShot ? "data:image/jpeg;base64," + mobileShot : null,
+      tabletScreenshot: tabletShot ? "data:image/jpeg;base64," + tabletShot : null,
+      vitals, a11y,
       faviconData,
       ...data,
       requestsByType: requests.reduce<Record<string, number>>((a, r) => ((a[r.type] = (a[r.type] || 0) + 1), a), {}),

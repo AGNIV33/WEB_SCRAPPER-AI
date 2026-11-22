@@ -3,6 +3,7 @@
 All dates 2026-11-21. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- **Round 1 features**: tablet (768) + mobile (390) screenshots for every page with device filter; **Speed** page (LCP, CLS, TBT as INP stand-in, FCP; lab measurement); **Accessibility** page (axe-core WCAG 2.1 A/AA, score, issues by impact with fix links); **Tokens & Code** page (Figma Tokens Studio JSON, W3C DTCG JSON, Tailwind config, shadcn theme, CSS variables, React+Tailwind Button/Card/Navbar/Input/Example); **Asset kit ZIP** (logo, favicon, SVG icons, images).
 - **Real media extraction**: every image/GIF/video the browser downloads is captured (carousel slides, hero videos, lazy images), labelled by real file type, with sizes; video thumbnails from the video itself. New GIF filter.
 - **Full-screen viewer** (Lightbox) with Download for every screenshot and media file; Screenshots page has View/Download per item + ZIP of all.
 - **Collapsible sidebar** (button next to the logo; remembered).

@@ -26,7 +26,7 @@ function col() {
 /** Drop screenshots and bulky per-page lists so the document fits Firestore's 1 MB limit. */
 function compactPages(pages: PageResult[], level: number): PageResult[] {
   return pages.map((p, i) => {
-    const x: PageResult = { ...p, screenshot: undefined, mobileScreenshot: undefined, faviconData: undefined };
+    const x: PageResult = { ...p, screenshot: undefined, mobileScreenshot: undefined, tabletScreenshot: undefined, faviconData: undefined };
     // inline SVGs are big data URLs: keep only real file links in history
     x.media = (p.media || []).filter((m) => !m.url.startsWith("data:")).slice(0, 200);
     if (level >= 1) { x.links = (p.links || []).slice(0, 50); x.failedRequests = undefined; x.textSample = undefined; x.media = x.media.slice(0, 80); }
