@@ -347,16 +347,16 @@ export default function App() {
             );
           })}
         </nav>
-        <div className={`mt-4 rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-100 p-4 dark:from-indigo-500/15 dark:to-violet-500/15 ${mini ? "lg:hidden" : ""}`}>
-          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-indigo-700 dark:text-indigo-300"><Sparkles size={16} /> AI-Powered Analysis</div>
-          <div className="text-xs text-slate-600 dark:text-slate-400">Design · Content · Code · UX</div>
-        </div>
-        {/* Creator signature */}
-        <div className={`mt-3 px-2 text-center ${mini ? "lg:hidden" : ""}`}>
+        {/* Creator signature + copyright */}
+        <div className={`mt-4 border-t border-slate-200/70 px-2 pt-4 text-center dark:border-white/10 ${mini ? "lg:hidden" : ""}`}>
           <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Crafted by</div>
           <div className="font-signature text-2xl leading-tight text-indigo-600 dark:text-indigo-300">Agniv Sarkar</div>
+          <div className="mt-2 text-[11px] leading-snug text-slate-400">© {new Date().getFullYear()} Agniv Sarkar.<br />All rights reserved.</div>
         </div>
-        {mini && <div className="font-signature mt-3 hidden text-center text-xl text-indigo-600 dark:text-indigo-300 lg:block" title="Crafted by Agniv Sarkar">AS</div>}
+        {mini && <div className="mt-3 hidden text-center lg:block" title={`Crafted by Agniv Sarkar · © ${new Date().getFullYear()} Agniv Sarkar. All rights reserved.`}>
+          <div className="font-signature text-xl text-indigo-600 dark:text-indigo-300">AS</div>
+          <div className="text-[10px] text-slate-400">© {new Date().getFullYear()}</div>
+        </div>}
       </aside>
       {menuOpen && <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setMenuOpen(false)} />}
 
