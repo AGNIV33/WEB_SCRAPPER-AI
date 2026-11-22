@@ -10,7 +10,7 @@
 - [ ] Firebase Auth > Settings > Authorized domains: add the Vercel domain.
 - [ ] Optional: password reset email and email verification.
 - [ ] Optional Google sign-in.
-- [ ] Rate limit the API routes on the deployed app (per IP) to protect NVIDIA quota and server time.
+- [x] Rate limit the API routes on the deployed app (per IP) to protect NVIDIA quota and server time.
 - [ ] Show progress per page (which page is scanning) in the Pages view.
 - [ ] Compare two analyses of the same site over time (history diff).
 - [ ] Export design.md as PDF.

@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/rateLimit";
 import * as cheerio from "cheerio";
 import { launchBrowser } from "@/lib/browser";
 import { assertPublicHost, cleanPageUrl, normalizeUrl, safeFetch, sameSite } from "@/lib/url";
@@ -81,6 +82,8 @@ async function renderedLinks(root: URL, found: Map<string, string>, deadline: nu
  * Returns the ordered list and the total found, so the user can choose how many to analyse.
  */
 export async function POST(req: Request) {
+  const limited = await rateLimit(req, "discover");
+  if (limited) return limited;
   try {
     const body = await req.json();
     const start = normalizeUrl(body.url);

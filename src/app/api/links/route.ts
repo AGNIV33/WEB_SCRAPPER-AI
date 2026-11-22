@@ -1,9 +1,12 @@
-﻿import { safeFetch } from "@/lib/url";
+import { rateLimit } from "@/lib/rateLimit";
+import { safeFetch } from "@/lib/url";
 
 export const maxDuration = 60;
 
 // Checks link status codes (passive: HEAD, then GET if HEAD is refused).
 export async function POST(req: Request) {
+  const limited = await rateLimit(req, "links");
+  if (limited) return limited;
   const { links } = (await req.json()) as { links: string[] };
   const list = [...new Set((links || []).filter((l) => /^https?:\/\//.test(l)))].slice(0, 150);
   const results: { url: string; status: number | null; error?: string }[] = [];

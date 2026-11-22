@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/rateLimit";
 import type { Page, HTTPRequest } from "puppeteer-core";
 import { launchBrowser } from "@/lib/browser";
 import { EXTRACT_SCRIPT } from "@/lib/extractScript";
@@ -17,6 +18,8 @@ async function autoScroll(page: Page) {
 }
 
 export async function POST(req: Request) {
+  const limited = await rateLimit(req, "page");
+  if (limited) return limited;
   const { url, mobile } = await req.json();
   let browser;
   let lastShot: string | null = null; // kept so even a failed page still returns its screenshot

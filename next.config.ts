@@ -1,4 +1,4 @@
-﻿import type { NextConfig } from "next";
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
   outputFileTracingIncludes: {
     "/api/page": ["./node_modules/@sparticuz/chromium/bin/**"],
+    "/api/discover": ["./node_modules/@sparticuz/chromium/bin/**"],
   },
   turbopack: {
     rules: {

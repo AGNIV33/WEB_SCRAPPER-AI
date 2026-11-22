@@ -78,6 +78,9 @@ DOCS/                   project documentation
 | JSON strings in Firestore | Firestore rejects nested arrays and has a 1 MB doc limit |
 | No screenshots in history | Keeps the database small and free-tier friendly; users re-crawl to see screenshots |
 
+## Rate limiting
+`src/lib/rateLimit.ts`, per visitor IP per hour: discover 15, page 200, site 30, links 30, ai 15. Whole app: 300 AI runs/day. Over the AI limit the app still answers with rule-based results. In-memory by default; Upstash Redis if configured.
+
 ## Security
 - `assertPublicHost` blocks localhost, private, link-local and CGNAT ranges (override: `ALLOW_PRIVATE_HOSTS=1`, local only).
 - Puppeteer aborts requests to literal private IPs.
@@ -94,6 +97,9 @@ DOCS/                   project documentation
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | client | for login/history |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | client | for login/history |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | client | for login/history |
+| `RATE_LIMIT` | server | no (on by default on Vercel; `1` forces on locally, `0` off) |
+| `AI_DAILY_LIMIT` | server | no (default 300 AI runs/day for the whole app) |
+| `UPSTASH_REDIS_REST_URL` / `_TOKEN` | server | no (exact shared limits) |
 | `CHROME_PATH` | server, local | only if Chrome isn't auto-found |
 | `ALLOW_PRIVATE_HOSTS` | server, local | testing only |
 

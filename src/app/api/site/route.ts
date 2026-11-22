@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/rateLimit";
 import tls from "node:tls";
 import { normalizeUrl, safeFetch, assertPublicHost } from "@/lib/url";
 
@@ -29,6 +30,8 @@ function certInfo(host: string): Promise<Record<string, unknown>> {
 }
 
 export async function POST(req: Request) {
+  const limited = await rateLimit(req, "site");
+  if (limited) return limited;
   try {
     const { url } = await req.json();
     const u = normalizeUrl(url);

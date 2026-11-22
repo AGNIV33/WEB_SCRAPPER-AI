@@ -1,3 +1,4 @@
+import { aiBudgetLeft, rateLimit } from "@/lib/rateLimit";
 import { buildDesignMd, ruleSuggestions, type Summary } from "@/lib/report";
 
 export const maxDuration = 120;
@@ -48,6 +49,12 @@ export async function POST(req: Request) {
 
   if (!process.env.NVIDIA_API_KEY) {
     return Response.json({ ai: false, note: "Add NVIDIA_API_KEY to get AI suggestions and AI design notes. Showing measured design.md and rule-based suggestions.", suggestions: rules, designMd: baseMd });
+  }
+  // Over the limit: still answer, just without AI (so the dashboard keeps working)
+  const limited = await rateLimit(req, "ai");
+  if (limited || !(await aiBudgetLeft())) {
+    const msg = limited ? ((await limited.json()) as { error: string }).error : "The AI has reached today's limit.";
+    return Response.json({ ai: false, note: `${msg} Showing measured design.md and rule-based suggestions.`, suggestions: rules, designMd: baseMd });
   }
 
   const facts = JSON.stringify({ ...summary, performance: { ...summary.performance, pages: summary.performance.pages.slice(0, 10) } }).slice(0, 16000);
