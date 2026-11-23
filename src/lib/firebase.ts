@@ -89,6 +89,21 @@ export async function loginWithGoogle() {
 }
 
 /** Firebase ID token for the logged-in user (sent to our API so the server knows who is calling). */
+/** Sends the "verify your email" link to the signed-in user. */
+export async function sendVerifyEmail() {
+  if (!auth?.currentUser) throw new Error("Please log in first.");
+  await sendEmailVerification(auth.currentUser);
+}
+
+/** Reloads the account after the user clicked the link, and gets a fresh token that says "verified". */
+export async function refreshVerified(): Promise<boolean> {
+  const u = auth?.currentUser;
+  if (!u) return false;
+  await u.reload();
+  await u.getIdToken(true);
+  return u.emailVerified;
+}
+
 export async function idToken(): Promise<string | null> {
   try { return (await auth?.currentUser?.getIdToken()) || null; } catch { return null; }
 }

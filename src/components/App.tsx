@@ -14,7 +14,7 @@ import Dashboard, { type AiResult, type View as DashView } from "@/components/Da
 import AuthModal from "@/components/AuthModal";
 import ChoosePages from "@/components/ChoosePages";
 import HistoryView from "@/components/HistoryView";
-import { auth, authEnabled, flags, idToken, logout as fbLogout, onUser, type User } from "@/lib/firebase";
+import { auth, authEnabled, flags, idToken, logout as fbLogout, onUser, refreshVerified, sendVerifyEmail, type User } from "@/lib/firebase";
 import Greeting from "@/components/Greeting";
 import Tour from "@/components/Tour";
 import { getUsage, recordScan, type Usage } from "@/lib/usage";
@@ -124,6 +124,15 @@ export default function App() {
   const [siteIcon, setSiteIcon] = useState<string | null>(null); // logo of the analysed website
   const [isAdmin, setIsAdmin] = useState(false); // admin account: unlimited (decided by the server)
   const [adminIssue, setAdminIssue] = useState<string | null>(null); // why the admin check failed (setup problems only)
+  const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
+  function checkAdmin() {
+    return idToken().then((t) => fetch("/api/me", { headers: t ? { authorization: `Bearer ${t}` } : {} })).then((r) => r.json()).then((j) => {
+      setIsAdmin(!!j.admin);
+      if (!j.admin) console.info("Admin check:", j.reason);
+      // Ordinary users ("email-not-in-admin-list") see nothing; setup problems are shown in the account menu
+      setAdminIssue(!j.admin && j.reason && j.reason !== "email-not-in-admin-list" ? j.reason : null);
+    }).catch((e) => setAdminIssue(`admin check failed: ${(e as Error).message}`));
+  }
   const [avatarBroken, setAvatarBroken] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const closeTour = useCallback(() => { setTourOpen(false); try { if (auth?.currentUser) localStorage.setItem(`tourDone:${auth.currentUser.uid}`, "1"); } catch { /* ignore */ } }, []); // Google photo failed to load: show the initial instead
@@ -168,12 +177,7 @@ export default function App() {
           }).catch(() => {});
         });
       }
-      if (u) idToken().then((t) => fetch("/api/me", { headers: t ? { authorization: `Bearer ${t}` } : {} })).then((r) => r.json()).then((j) => {
-        setIsAdmin(!!j.admin);
-        if (!j.admin) console.info("Admin check:", j.reason);
-        // Ordinary users ("email-not-in-admin-list") see nothing; setup problems are shown in the account menu
-        setAdminIssue(!j.admin && j.reason && j.reason !== "email-not-in-admin-list" ? j.reason : null);
-      }).catch((e) => setAdminIssue(`admin check failed: ${(e as Error).message}`));
+      if (u) checkAdmin();
       // Quick tour: once, for accounts created in the last 24 hours
       try {
         const isNew = Date.now() - new Date(u?.metadata.creationTime || 0).getTime() < 24 * 3600 * 1000;
@@ -492,6 +496,13 @@ export default function App() {
                         <div className="truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</div>
                         {isAdmin && <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"><Crown size={10} /> Admin · Unlimited</span>}
                         {!isAdmin && adminIssue && <div className="mt-1 break-words text-[10px] text-amber-600 dark:text-amber-400">Admin check: {adminIssue}</div>}
+                        {!isAdmin && adminIssue === "email-not-verified" && (
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            <button onClick={() => sendVerifyEmail().then(() => setVerifyMsg("Link sent. Open your inbox, click it, then press \"I've verified\".")).catch((e) => setVerifyMsg((e as Error).message))} className="rounded-md bg-indigo-500 px-2 py-1 text-[10px] font-semibold text-white">Send verify email</button>
+                            <button onClick={() => refreshVerified().then((ok) => { setVerifyMsg(ok ? "Verified!" : "Not verified yet. Click the link in the email first."); if (ok) checkAdmin(); }).catch((e) => setVerifyMsg((e as Error).message))} className="rounded-md border border-slate-300 px-2 py-1 text-[10px] font-semibold dark:border-white/20">I&apos;ve verified</button>
+                          </div>
+                        )}
+                        {!isAdmin && verifyMsg && <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">{verifyMsg}</div>}
                       </div>
                     </div>
                     <button type="button" onClick={() => { setView("history"); setUserMenu(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-white/5"><History size={16} /> My history</button>
