@@ -24,11 +24,15 @@ export default function Greeting({ user }: { user: User | null }) {
     return { text: tpl.replace("{t}", BY_TIME(new Date().getHours())).replace("{n}", firstName(user)), emoji };
   }, [user]);
 
-  if (!line) return null;
+  // guests get a plain welcome
+  const { text, emoji } = line ?? { text: "Welcome to Scrapper AI!", emoji: "👋" };
   return (
-    <div className="hidden min-w-0 items-center gap-2 truncate text-sm font-medium text-slate-600 animate-[topbar-in_.6s_ease-out] dark:text-slate-300 sm:flex">
-      <span className="inline-block origin-[70%_70%] text-lg animate-[wave_2.2s_ease-in-out_1]">{line.emoji}</span>
-      <span className="truncate">{line.text}</span>
+    <div className="hidden min-w-0 items-center gap-3 animate-[topbar-in_.6s_ease-out] sm:flex">
+      <span className="inline-block shrink-0 origin-[70%_70%] text-3xl animate-[wave_2.2s_ease-in-out_1]">{emoji}</span>
+      <span className="min-w-0">
+        <span className="block truncate text-lg font-bold leading-tight text-[#14123a] dark:text-white">{text}</span>
+        <span className="block truncate text-sm text-slate-500 dark:text-slate-400">Analyze <span className="mx-1 text-slate-400">•</span> Audit <span className="mx-1 text-slate-400">•</span> Design <span className="mx-1 text-slate-400">•</span> Grow</span>
+      </span>
     </div>
   );
 }
