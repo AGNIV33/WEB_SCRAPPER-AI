@@ -502,18 +502,16 @@ export default function App() {
             <path d="M0 26 C 50 14, 90 34, 140 24 S 210 8, 240 14 V48 H0 Z" fill="url(#sbw1)" />
             <path d="M0 36 C 60 26, 110 44, 160 34 S 220 24, 240 28 V48 H0 Z" fill="url(#sbw2)" />
           </svg>
-          <div className="relative flex items-start justify-between gap-2">
-            <div>
-              <div className="text-sm text-slate-500 dark:text-slate-400">Crafted by</div>
-              <div className="text-lg font-bold text-[#14123a] dark:text-white">Agniv Sarkar</div>
+          <span className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300"><Code2 size={16} /></span>
+          <div className="relative text-center">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Crafted by</div>
+            <div className="font-signature text-[24px] leading-tight text-indigo-600 dark:text-indigo-300">Agniv Sarkar</div>
+            <div className="mt-2 text-[11px] leading-snug text-slate-400">© {new Date().getFullYear()} Agniv Sarkar.<br />All rights reserved.</div>
+            <div className="mt-2 flex flex-wrap justify-center gap-x-2 gap-y-0.5 text-[11px] text-slate-400">
+              <a href="/privacy" className="hover:text-indigo-600 hover:underline dark:hover:text-indigo-300">Privacy</a>·
+              <a href="/terms" className="hover:text-indigo-600 hover:underline dark:hover:text-indigo-300">Terms</a>·
+              <a href="/disclaimer" className="hover:text-indigo-600 hover:underline dark:hover:text-indigo-300">Disclaimer</a>
             </div>
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300"><Code2 size={20} /></span>
-          </div>
-          <div className="relative mt-4 text-xs leading-snug text-slate-500 dark:text-slate-400">© {new Date().getFullYear()} Agniv Sarkar.<br />All rights reserved.</div>
-          <div className="relative mt-2 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-slate-500 dark:text-slate-400">
-            <a href="/privacy" className="hover:text-violet-600 hover:underline dark:hover:text-violet-300">Privacy</a>·
-            <a href="/terms" className="hover:text-violet-600 hover:underline dark:hover:text-violet-300">Terms</a>·
-            <a href="/disclaimer" className="hover:text-violet-600 hover:underline dark:hover:text-violet-300">Disclaimer</a>
           </div>
         </div>
         {mini && <div className="mt-3 hidden text-center lg:block" title={`Crafted by Agniv Sarkar · © ${new Date().getFullYear()} Agniv Sarkar. All rights reserved.`}>
