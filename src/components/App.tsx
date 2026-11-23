@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, MessageSquare, ShieldCheck, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown, BadgeCheck, Wrench, Users, TrendingUp, MessageCircleQuestion, Plus,
+  Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
+  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Film, MessageSquare, ShieldCheck, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronRight, LayoutGrid, Code2, BadgeCheck, Wrench, Users, TrendingUp, MessageCircleQuestion, Plus,
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
@@ -69,7 +69,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 type NavItem = { id: View; label: string; icon: React.ElementType };
 /** Sidebar, grouped into collapsible categories. Items without a group title are always visible. */
 const NAV_GROUPS: { id: string; title?: string; icon?: React.ElementType; items: NavItem[] }[] = [
-  { id: "main", items: [{ id: "overview", label: "Overview", icon: LayoutDashboard }, { id: "chat", label: "Ask AI", icon: MessageCircleQuestion }] },
+  { id: "main", items: [{ id: "overview", label: "Overview", icon: LayoutGrid }, { id: "chat", label: "Ask AI", icon: MessageCircleQuestion }] },
   { id: "design", title: "Design", icon: Palette, items: [
     { id: "colors", label: "Colors", icon: Palette },
     { id: "fonts", label: "Fonts", icon: Type },
@@ -107,7 +107,7 @@ export default function App() {
   const { settings, update: updateSettings, reset: resetSettings } = useSettings();
   const mini = settings.sidebarCollapsed;
   // Sidebar categories that are open (remembered in this browser). Default: Design open.
-  const [openGroups, setOpenGroups] = useState<Set<string>>(() => { try { return new Set(JSON.parse(localStorage.getItem("navGroups") || "[\"design\"]")); } catch { return new Set(["design"]); } });
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => { try { return new Set(JSON.parse(localStorage.getItem("navGroups") || "[]")); } catch { return new Set(); } });
   const toggleGroup = (id: string) => setOpenGroups((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); try { localStorage.setItem("navGroups", JSON.stringify([...n])); } catch { /* ignore */ } return n; });
   const [urlState, setUrl] = useState("");
   const url = urlState;
@@ -127,6 +127,8 @@ export default function App() {
   // "/?view=contact" (used by the legal pages) opens Contact us directly
   const [view, setView] = useState<View>(() => { try { return new URLSearchParams(location.search).get("view") === "contact" ? "contact" : "overview"; } catch { return "overview"; } });
   const [menuOpen, setMenuOpen] = useState(false);
+  /** Section picked from a start-page card: opened when the next scan starts. */
+  const [heroTarget, setHeroTarget] = useState<DashView | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [profileOpen, setProfileOpen] = useState(false); // "complete your profile" (name, country, password)
@@ -245,7 +247,7 @@ export default function App() {
   const resetAfterStopRef = useRef(false);
   function clearReport() {
     setPhase("idle"); setPages([]); setSite(null); setSummary(null); setAi(null); setExtras(null); setMeta(null); setLog([]); setUrl(""); setSiteIcon(null);
-    setError(null); setGuestRun(false); setSaveState("idle"); setChooser(null); setView("overview"); setMenuOpen(false);
+    setError(null); setGuestRun(false); setSaveState("idle"); setChooser(null); setView("overview"); setHeroTarget(null); setMenuOpen(false);
   }
   // "+ New" pressed during a scan: once the scan has stopped, go to the fresh start screen
   function finishNew() { if (resetAfterStopRef.current) { resetAfterStopRef.current = false; clearReport(); } }
@@ -267,7 +269,7 @@ export default function App() {
     stopRef.current = false;
     apiCalls = 0;
     const t0 = new Date();
-    setError(null); setSiteIcon(null); setPages([]); setSite(null); setSummary(null); setAi(null); setExtras(null); setLog([]); setMeta(null); setView("overview"); setSaveState("idle");
+    setError(null); setSiteIcon(null); setPages([]); setSite(null); setSummary(null); setAi(null); setExtras(null); setLog([]); setMeta(null); setView(heroTarget ?? "overview"); setHeroTarget(null); setSaveState("idle");
     try {
       // 1) Count the site's pages first
       setPhase("discover"); say("Counting the pages on this site…");
@@ -425,77 +427,93 @@ export default function App() {
       )}
       {/* Sidebar */}
       {/* Sidebar: full (w-64) or minimised to icons (w-20) on large screens; slide-in drawer on small screens */}
-      <aside className={`glass-panel fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200/70 bg-white py-6 transition-all duration-300 dark:border-white/10 dark:bg-[#12121f] lg:translate-x-0 ${mini ? "px-4 lg:w-20 lg:px-3" : "px-4"} ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className={`mb-6 flex items-center gap-3 px-2 ${mini ? "lg:flex-col lg:px-0" : ""}`}>
+      <aside className={`glass-panel fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-slate-200/70 bg-white py-6 transition-all duration-300 dark:border-white/10 dark:bg-[#12121f] lg:translate-x-0 ${mini ? "px-5 lg:w-20 lg:px-3" : "px-5"} ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className={`mb-6 flex items-center gap-3 px-1 ${mini ? "lg:flex-col lg:px-0" : ""}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mark.svg" alt="Scrapper AI" className="h-10 w-10 shrink-0" />
-          <div className={mini ? "lg:hidden" : ""}><div className="text-lg font-bold leading-tight tracking-tight"><span className="text-[#1e1b4b] dark:text-white">Scrapper</span> <span className="text-violet-500">AI</span></div><div className="text-xs text-slate-500 dark:text-slate-400">Website Analyzer</div></div>
+          <img src="/logo-mark.svg" alt="Scrapper AI" className="h-11 w-11 shrink-0" />
+          <div className={mini ? "lg:hidden" : ""}><div className="text-xl font-bold leading-tight tracking-tight"><span className="text-[#14123a] dark:text-white">Scrapper</span> <span className="text-violet-600 dark:text-violet-400">AI</span></div><div className="text-sm text-slate-500 dark:text-slate-400">Website Analyzer</div></div>
           <button className="ml-auto lg:hidden" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={18} /></button>
           <button onClick={() => updateSettings({ sidebarCollapsed: !mini })} aria-label={mini ? "Expand sidebar" : "Minimise sidebar"} title={mini ? "Expand sidebar" : "Minimise sidebar"}
-            className={`hidden h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/5 lg:grid ${mini ? "" : "ml-auto"}`}>
-            {mini ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+            className={`hidden h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-500 shadow-sm hover:bg-violet-50 hover:text-violet-600 dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/5 lg:grid ${mini ? "" : "ml-auto"}`}>
+            {mini ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
           </button>
         </div>
         <button onClick={startNew} title={mini ? "New scan" : "Start a new scan"} aria-label="New scan"
-          className={`mb-3 flex items-center gap-3 rounded-xl border border-dashed border-indigo-300 px-3 py-2 text-sm font-semibold text-indigo-600 transition hover:border-solid hover:bg-indigo-50 dark:border-white/20 dark:text-white dark:hover:bg-white/5 ${mini ? "lg:justify-center lg:px-0" : ""}`}>
-          <Plus size={18} className="shrink-0" /> <span className={mini ? "lg:hidden" : ""}>New</span>
+          className={`mb-5 flex items-center gap-4 rounded-xl bg-gradient-to-r from-violet-500 to-violet-700 px-5 py-3 text-base font-semibold text-white shadow-lg shadow-violet-500/30 transition hover:brightness-110 ${mini ? "lg:justify-center lg:px-0" : ""}`}>
+          <Plus size={22} className="shrink-0" /> <span className={mini ? "lg:hidden" : ""}>New</span>
         </button>
         <nav data-tour="nav" className="no-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
           {navGroups.map((g) => {
-            // a group is open if the user opened it, or it holds the current page
             const open = !g.title || mini || openGroups.has(g.id);
             const GIcon = g.icon;
+            const holdsCurrent = g.items.some((i) => i.id === view);
+            // thin line between the scan sections and admin / contact / settings
+            const divider = g.id === "admin" || (g.id === "end" && !navGroups.some((x) => x.id === "admin"));
             return (
-              <div key={g.id} className={g.title ? "mt-1" : ""}>
+              <div key={g.id}>
+                {divider && <div className={`my-2 h-px bg-slate-200 dark:bg-white/10 ${mini ? "lg:mx-2" : ""}`} />}
                 {g.title && GIcon && (
                   <>
-                    {/* minimised sidebar: a thin divider instead of the category header */}
                     {mini && <div className="mx-3 my-1.5 hidden h-px bg-slate-200 dark:bg-white/10 lg:block" />}
                     <button onClick={() => toggleGroup(g.id)} aria-expanded={open}
-                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ${mini ? "lg:hidden" : ""}`}>
-                      <GIcon size={14} className="shrink-0" /> <span className="flex-1 text-left">{g.title}</span>
-                      <ChevronDown size={14} className={`shrink-0 transition-transform duration-200 ${open ? "" : "-rotate-90"}`} />
+                      className={`flex w-full items-center gap-4 rounded-xl px-3 py-2.5 text-[15px] font-semibold transition hover:bg-violet-50 dark:hover:bg-white/5 ${holdsCurrent ? "text-violet-700 dark:text-violet-300" : "text-[#14123a] dark:text-slate-200"} ${mini ? "lg:hidden" : ""}`}>
+                      <GIcon size={20} strokeWidth={1.8} className="shrink-0" /> <span className="flex-1 text-left">{g.title}</span>
+                      <ChevronRight size={18} className={`shrink-0 text-slate-500 transition-transform duration-200 ${open ? "rotate-90" : ""}`} />
                     </button>
                   </>
                 )}
                 <div className={`grid transition-[grid-template-rows] duration-200 ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-                  <div className={`flex flex-col gap-0.5 overflow-hidden ${g.title && !mini ? "pl-2" : ""}`}>
-                    {g.items.map(({ id, label, icon: Icon }) => (
+                  <div className={`flex flex-col gap-0.5 overflow-hidden ${g.title && !mini ? "ml-5 border-l border-slate-200 pl-3 dark:border-white/10" : ""}`}>
+                    {g.items.map(({ id, label, icon: Icon }) => {
+                      const sub = !!g.title;
+                      const active = view === id;
+                      return (
                       <button key={id} data-tour={id === "settings" ? "settings" : undefined} onClick={() => { setView(id); setMenuOpen(false); }} title={mini ? label : undefined} tabIndex={open ? 0 : -1}
-                        className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${mini ? "lg:justify-center lg:px-0" : ""} ${view === id ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/25" : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"}`}>
-                        <Icon size={18} className="shrink-0" /> <span className={`flex-1 text-left ${mini ? "lg:hidden" : ""}`}>{label}</span>
+                        className={`flex items-center rounded-xl transition ${sub ? "gap-3 px-3 py-2 text-sm" : "gap-4 px-3 py-2.5 text-[15px]"} ${mini ? "lg:justify-center lg:px-0" : ""} ${active ? "bg-violet-100 font-semibold text-violet-700 dark:bg-violet-500/20 dark:text-violet-200" : `${sub ? "font-medium text-slate-600 dark:text-slate-300" : "font-semibold text-[#14123a] dark:text-slate-200"} hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-white/5 dark:hover:text-white`}`}>
+                        <Icon size={sub ? 17 : 20} strokeWidth={1.8} className="shrink-0" /> <span className={`flex-1 text-left ${mini ? "lg:hidden" : ""}`}>{label}</span>
                         {id === "admin" && inboxCount > 0 && <span className={`rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white ${mini ? "lg:hidden" : ""}`}>{inboxCount}</span>}
                         {isLocked(id) && <Lock size={13} className={`shrink-0 opacity-60 ${mini ? "lg:hidden" : ""}`} />}
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
             );
           })}
         </nav>
-        {/* Creator signature + copyright */}
-        <div className={`mt-4 border-t border-slate-200/70 px-2 pt-4 text-center dark:border-white/10 ${mini ? "lg:hidden" : ""}`}>
-          <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Crafted by</div>
-          <div className="font-signature text-2xl leading-tight text-indigo-600 dark:text-indigo-300">Agniv Sarkar</div>
-          <div className="mt-2 text-[11px] leading-snug text-slate-400">© {new Date().getFullYear()} Agniv Sarkar.<br />All rights reserved.</div>
-          <div className="mt-2 flex flex-wrap justify-center gap-x-2 gap-y-0.5 text-[11px] text-slate-400">
-            <a href="/privacy" className="hover:text-indigo-600 hover:underline dark:hover:text-indigo-300">Privacy</a>·
-            <a href="/terms" className="hover:text-indigo-600 hover:underline dark:hover:text-indigo-300">Terms</a>·
-            <a href="/disclaimer" className="hover:text-indigo-600 hover:underline dark:hover:text-indigo-300">Disclaimer</a>
+        {/* Creator card + copyright */}
+        <div className={`relative mt-4 overflow-hidden rounded-2xl border border-slate-200/80 bg-white px-5 pb-3 pt-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03] ${mini ? "lg:hidden" : ""}`}>
+          <svg viewBox="0 0 240 60" preserveAspectRatio="none" className="pointer-events-none absolute right-0 top-[30%] h-11 w-2/3" aria-hidden>
+            <defs><linearGradient id="sbw" x1="0" x2="1"><stop offset="0" stopColor="#a78bfa" stopOpacity="0" /><stop offset="1" stopColor="#8b5cf6" stopOpacity=".55" /></linearGradient></defs>
+            <path d="M0 40 C 60 50, 110 55, 160 30 S 230 5, 240 8 L 240 60 L 0 60 Z" fill="url(#sbw)" opacity=".5" />
+            <path d="M0 46 C 70 56, 120 52, 170 34 S 225 18, 240 20" stroke="#8b5cf6" strokeOpacity=".5" strokeWidth="2" fill="none" />
+          </svg>
+          <div className="relative flex items-start justify-between gap-2">
+            <div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">Crafted by</div>
+              <div className="text-lg font-bold text-[#14123a] dark:text-white">Agniv Sarkar</div>
+            </div>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300"><Code2 size={20} /></span>
+          </div>
+          <div className="relative mt-8 text-xs leading-snug text-slate-500 dark:text-slate-400">© {new Date().getFullYear()} Agniv Sarkar.<br />All rights reserved.</div>
+          <div className="relative mt-2 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-slate-500 dark:text-slate-400">
+            <a href="/privacy" className="hover:text-violet-600 hover:underline dark:hover:text-violet-300">Privacy</a>·
+            <a href="/terms" className="hover:text-violet-600 hover:underline dark:hover:text-violet-300">Terms</a>·
+            <a href="/disclaimer" className="hover:text-violet-600 hover:underline dark:hover:text-violet-300">Disclaimer</a>
           </div>
         </div>
         {mini && <div className="mt-3 hidden text-center lg:block" title={`Crafted by Agniv Sarkar · © ${new Date().getFullYear()} Agniv Sarkar. All rights reserved.`}>
-          <div className="font-signature text-xl text-indigo-600 dark:text-indigo-300">AS</div>
+          <div className="font-signature text-xl text-violet-600 dark:text-violet-300">AS</div>
           <div className="text-[10px] text-slate-400">© {new Date().getFullYear()}</div>
         </div>}
       </aside>
       {menuOpen && <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setMenuOpen(false)} />}
 
-      <div className={`relative z-10 transition-[padding] duration-300 ${mini ? "lg:pl-20" : "lg:pl-64"}`}>
+      <div className={`relative z-10 transition-[padding] duration-300 ${mini ? "lg:pl-20" : "lg:pl-72"}`}>
         {/* Top bar */}
-        <header className="glass-panel sticky top-0 z-20 border-b border-slate-200/60 bg-white/95 dark:border-white/10 dark:bg-[#0d0d17]/95">
-          <form ref={formRef} onSubmit={run} className="flex flex-wrap items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 md:px-8">
+        <header className="glass-panel sticky top-0 z-20 border-b border-slate-200/70 bg-white/95 dark:border-white/10 dark:bg-[#0d0d17]/95">
+          <form ref={formRef} onSubmit={run} className="flex flex-wrap items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 md:px-8">
             <button type="button" className="shrink-0 lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={22} /></button>
             {/* phone: logo on the first row, URL + Analyze on their own full-width second row */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -516,14 +534,14 @@ export default function App() {
             </div>
             <button type="button" data-tour="glass" onClick={() => updateSettings({ glass: !settings.glass })} aria-label="Toggle glass mode" title="Glass mode"
               aria-pressed={settings.glass} className="tt tt-round ml-auto sm:ml-0">
-              <span className="tt-sheen" aria-hidden /><Droplets size={18} strokeWidth={2.2} className="tt-icon" />
+              <span className="tt-sheen" aria-hidden /><Sparkles size={19} strokeWidth={2} className="tt-icon" />
             </button>
             <span data-tour="theme" className="contents"><ThemeToggle onToggle={() => { updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }); }} /></span>
             <NotificationBell notes={notify.notes} unread={notify.unread} markAllRead={notify.markAllRead} remove={notify.remove} clear={notify.clear} onOpenNote={(n) => { if (n.view && !isLocked(n.view as View)) setView(n.view as View); }} />
             {authEnabled && (user ? (
               <div className="relative" data-tour="account">
                 <button type="button" onClick={() => setUserMenu((o) => !o)} aria-label="Account menu"
-                  className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full sm:h-10 sm:w-10 bg-gradient-to-br from-indigo-400 to-violet-500 text-sm font-semibold uppercase text-white ring-2 ring-white shadow dark:ring-white/10">
+                  className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full sm:h-11 sm:w-11 bg-gradient-to-br from-indigo-400 to-violet-500 text-sm font-semibold uppercase text-white ring-2 ring-white shadow dark:ring-white/10">
                   {user.photoURL && !avatarBroken
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" onError={() => setAvatarBroken(true)} className="h-full w-full object-cover" />
@@ -603,7 +621,7 @@ export default function App() {
             : view === "changes"
             ? <ChangesView current={summary && meta ? { summary, pages, ai, meta } : null} historyKey={historyKey} onRescan={(u: string) => { setUrl(u); setTimeout(() => formRef.current?.requestSubmit(), 50); }} />
             : !started && !isLocked(view)
-            ? <HeroSearch url={url} setUrl={setUrl} onStart={(u) => run(undefined, u)} />
+            ? <HeroSearch url={url} setUrl={setUrl} onStart={(u) => run(undefined, u)} target={heroTarget} onPick={setHeroTarget} />
             : <Dashboard view={view} setView={setView} siteIcon={siteIcon} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} extras={extras} onAnalyze={(u: string) => { setUrl(u); setTimeout(() => formRef.current?.requestSubmit(), 50); }} onRecrawl={recrawl} guest={authEnabled && !user && guestRun} onLogin={() => setAuthOpen(true)} />}
         </main>
       </div>
