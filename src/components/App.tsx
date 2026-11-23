@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, MessageSquare, ShieldCheck, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown,
+  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, MessageSquare, ShieldCheck, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown, BadgeCheck, Wrench, Users, TrendingUp,
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
@@ -33,6 +33,8 @@ import { myFeedback, markRepliesSeen, replyKey, seenReplies } from "@/lib/feedba
 import { watchNewFeedback } from "@/lib/admin";
 import { useNotifications } from "@/lib/notify";
 import { loadAnalysis, saveAnalysis } from "@/lib/history";
+import { loadExtras } from "@/lib/extrasClient";
+import type { Extras } from "@/lib/insights";
 
 type View = DashView | "history" | "settings" | "pricing" | "compare" | "changes" | "admin" | "contact";
 
@@ -84,8 +86,13 @@ const NAV_GROUPS: { id: string; title?: string; icon?: React.ElementType; items:
     { id: "security", label: "Security", icon: Shield },
     { id: "speed", label: "Speed", icon: Gauge },
     { id: "a11y", label: "Accessibility", icon: Accessibility },
+    { id: "trust", label: "Trust check", icon: BadgeCheck },
     { id: "suggestions", label: "Suggestions", icon: Lightbulb },
     { id: "tech", label: "Tech Stack", icon: Layers },
+  ] },
+  { id: "grow", title: "Grow", icon: TrendingUp, items: [
+    { id: "seofix", label: "SEO fixes", icon: Wrench },
+    { id: "competitors", label: "Competitors", icon: Users },
   ] },
   ...(authEnabled ? [{ id: "account", title: "Account", icon: History, items: [
     { id: "history" as View, label: "History", icon: History },
@@ -114,6 +121,7 @@ export default function App() {
   const [site, setSite] = useState<SiteResult | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [ai, setAi] = useState<AiResult | null>(null);
+  const [extras, setExtras] = useState<Extras | null>(null); // speed score, trust, SEO fixes, competitors
   const [meta, setMeta] = useState<{ startedAt: Date; seconds: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>("overview");
@@ -158,7 +166,7 @@ export default function App() {
       // Logged out: stop any scan and clear everything the account was looking at, so no data stays on screen
       if (!u && had) {
         stopRef.current = true;
-        setPhase("idle"); setPages([]); setSite(null); setSummary(null); setAi(null); setMeta(null); setLog([]); setUrl(""); setSiteIcon(null);
+        setPhase("idle"); setPages([]); setSite(null); setSummary(null); setAi(null); setExtras(null); setMeta(null); setLog([]); setUrl(""); setSiteIcon(null);
         setGuestRun(false); setSaveState("idle"); setUserMenu(false); setChooser(null); setView("overview"); setProfileOpen(false);
       }
       had = !!u;
@@ -220,7 +228,7 @@ export default function App() {
     setError(null);
     try {
       const a = await loadAnalysis(id);
-      setPages(a.pages); setSummary(a.summary); setAi(a.ai); setSite(a.site); setMeta(a.meta);
+      setPages(a.pages); setSummary(a.summary); setAi(a.ai); setExtras(a.ai?.extras ?? null); setSite(a.site); setMeta(a.meta);
       setUrl(a.summary.url || ""); setPhase("done"); setSaveState("saved"); setView("overview");
     } catch (e) { setError((e as Error).message); }
   }
@@ -240,7 +248,7 @@ export default function App() {
     stopRef.current = false;
     apiCalls = 0;
     const t0 = new Date();
-    setError(null); setSiteIcon(null); setPages([]); setSite(null); setSummary(null); setAi(null); setLog([]); setMeta(null); setView("overview"); setSaveState("idle");
+    setError(null); setSiteIcon(null); setPages([]); setSite(null); setSummary(null); setAi(null); setExtras(null); setLog([]); setMeta(null); setView("overview"); setSaveState("idle");
     try {
       // 1) Count the site's pages first
       setPhase("discover"); say("Counting the pages on this site…");
@@ -327,8 +335,13 @@ export default function App() {
       setSummary(s);
 
       setPhase("ai"); say("Writing suggestions and design.md…");
+      // Speed score, trust check, SEO fixes and competitors run at the same time as the AI
+      const extrasPromise = loadExtras(post, disc.root, results, siteRes.error ? null : siteRes, (part) => setExtras((e) => ({ ...(e || {}), ...part })));
       const aiRes = await post<AiResult>("/api/ai", { summary: s, textSample: results[0]?.textSample, screenshot: results.find((r) => r.screenshot)?.screenshot, pagesInfo: results.filter((r) => !r.error).slice(0, 15).map((r) => ({ url: r.url, title: r.seo?.title, description: r.seo?.description, h1: r.seo?.h1.slice(0, 3), h2: r.seo?.h2.slice(0, 6) })) }).catch((e) => ({ ai: false, error: e.message, suggestions: [], designMd: "" }) as AiResult);
       setAi(aiRes);
+      say("Finishing speed score, trust check and competitors…");
+      const extrasRes = await extrasPromise;
+      const aiToSave: AiResult = { ...aiRes, extras: extrasRes };
       const seconds = (Date.now() - t0.getTime()) / 1000;
       setMeta({ startedAt: t0, seconds });
       setPhase("done"); say("Done.");
@@ -344,7 +357,7 @@ export default function App() {
       if (user) {
         recordScan(disc.root).then(() => getUsage().then(setUsage)).catch(() => {});
         setSaveState("saving");
-        saveAnalysis({ pages: results, site: siteRes.error ? null : siteRes, summary: s, ai: aiRes, seconds, rootUrl: disc.root })
+        saveAnalysis({ pages: results, site: siteRes.error ? null : siteRes, summary: s, ai: aiToSave, seconds, rootUrl: disc.root })
           .then(() => { setSaveState("saved"); setHistoryKey((k) => k + 1); notify.push({ kind: "info", title: "Saved to your history", body: host, view: "history" }); })
           .catch((e) => { setSaveState("error"); setError(`Could not save to history: ${e.message}`); trackEvent({ type: "error", where: "save", message: e.message }); notify.push({ kind: "error", title: "Could not save to history", body: e.message }); });
       }
@@ -559,7 +572,7 @@ export default function App() {
             ? <ChangesView current={summary && meta ? { summary, pages, ai, meta } : null} historyKey={historyKey} onRescan={(u: string) => { setUrl(u); setTimeout(() => formRef.current?.requestSubmit(), 50); }} />
             : !started && !isLocked(view)
             ? <HeroSearch url={url} setUrl={setUrl} onStart={(u) => run(undefined, u)} />
-            : <Dashboard view={view} setView={setView} siteIcon={siteIcon} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} onRecrawl={recrawl} guest={authEnabled && !user && guestRun} onLogin={() => setAuthOpen(true)} />}
+            : <Dashboard view={view} setView={setView} siteIcon={siteIcon} pages={pages} site={site} summary={summary} ai={ai} busy={busy} meta={meta} extras={extras} onAnalyze={(u: string) => { setUrl(u); setTimeout(() => formRef.current?.requestSubmit(), 50); }} onRecrawl={recrawl} guest={authEnabled && !user && guestRun} onLogin={() => setAuthOpen(true)} />}
         </main>
       </div>
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}

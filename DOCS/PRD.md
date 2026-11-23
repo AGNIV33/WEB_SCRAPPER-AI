@@ -19,12 +19,13 @@ Designers and developers who want to study, audit or recreate a website have to 
 - Every number comes from the live site (measured), not guessed.
 - Security checks are **passive only** (no attacks, no probing).
 - Works on Vercel (serverless) and locally.
-- Free AI via NVIDIA NIM (not paid APIs).
+- Free AI via NVIDIA NIM (not paid APIs). Other APIs on free tiers only (Google PageSpeed, Safe Browsing, Gemini, RDAP, Green Web Foundation).
 
 ## 5. Non-goals
 - No active vulnerability scanning, fuzzing, login brute force or port scans.
 - No crawling behind logins or paywalls.
 - Not a full SEO suite (no keyword ranking, backlinks).
+- The trust check is a guide, not a guarantee.
 - Not a site cloner (we describe the design; we don't copy assets).
 
 ## 6. Features
@@ -44,8 +45,17 @@ Designers and developers who want to study, audit or recreate a website have to 
 | F12 | Detailed `design.md` (measured tokens + AI notes from screenshot) | Done |
 | F13 | Dashboard: sidebar layout, light/dark theme, GSAP animations, responsive | Done |
 | F14 | Downloads: `design.md`, `report.json`, screenshots | Done |
-| F15 | Login (email + password) and per-user history | Built (Firebase), needs Firebase project setup |
+| F15 | Login (email + password, Google) and per-user history | Done (Firebase) |
 | F16 | Deploy to Vercel | Pending (user reviews locally first) |
+| F17 | Guest mode, free plan limits, Plans page (demo checkout) | Done |
+| F18 | Compare sites, What changed, Share link | Done |
+| F19 | Admin dashboard (usage, users, plans, errors, feedback inbox) | Done |
+| F20 | Contact us (feedback with status and admin reply) | Done |
+| F21 | Tech stack detector (130+ technologies by category, from page, headers, cookies) | Done |
+| F22 | SEO fix list with ready-to-paste code (AI titles/descriptions) | Done |
+| F23 | Google speed score (PageSpeed Insights) + carbon per visit | Done (needs `GOOGLE_API_KEY`) |
+| F24 | Trust / scam check (Safe Browsing, SSL, domain age, trust pages) | Done (Safe Browsing needs `GOOGLE_API_KEY`) |
+| F25 | Competitor finder (Gemini + Google Search) | Done (needs `GEMINI_API_KEY`) |
 
 ## 7. Success metrics
 - Analysis of 6 pages finishes in < 90 s.

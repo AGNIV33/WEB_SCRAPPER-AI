@@ -1,47 +1,9 @@
 import { authConfigured, getCaller, isAdmin, isBlocked } from "@/lib/serverAuth";
 import { aiBudgetLeft, rateLimit } from "@/lib/rateLimit";
 import { buildDesignMd, ruleSuggestions, type Summary } from "@/lib/report";
+import { chat, NIM_MODEL as MODEL, type Msg } from "@/lib/nim";
 
 export const maxDuration = 120;
-
-const BASE = process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1";
-const MODEL = process.env.NVIDIA_MODEL || "nvidia/nemotron-3.5-super-vl-120b-a12b";
-const FALLBACK = process.env.NVIDIA_FALLBACK_MODEL || "nvidia/nemotron-3.5-lightning-30b-a3b";
-
-type Msg = { role: string; content: string | ({ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } })[] };
-
-async function chat(messages: Msg[], maxTokens: number) {
-  try {
-    return await chatWith(MODEL, messages, maxTokens, 75000);
-  } catch (e) {
-    if (!FALLBACK || FALLBACK === MODEL) throw e;
-    // Fallback model is text-only: drop images. Fits inside the 120s function limit.
-    const textOnly = messages.map((m) => (typeof m.content === "string" ? m : { ...m, content: m.content.filter((c) => c.type === "text") }));
-    return chatWith(FALLBACK, textOnly, maxTokens, 35000);
-  }
-}
-
-async function chatWith(model: string, messages: Msg[], maxTokens: number, timeoutMs: number) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const r = await fetch(`${BASE}/chat/completions`, {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { "content-type": "application/json", authorization: `Bearer ${process.env.NVIDIA_API_KEY}` },
-      // Thinking off: faster, and the whole token budget goes to the answer (Nemotron/Qwen-style models).
-      body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: maxTokens, chat_template_kwargs: { enable_thinking: false } }),
-    });
-    if (!r.ok) throw new Error(`NVIDIA API ${r.status}: ${(await r.text()).slice(0, 200)}`);
-    const j = await r.json();
-    // Reasoning models may include a <think>…</think> block; drop it.
-    const out = ((j.choices?.[0]?.message?.content as string) || "").replace(/<think>[\s\S]*?<\/think>/g, "").trim();
-    if (!out) throw new Error(`${model} returned an empty answer (finish: ${j.choices?.[0]?.finish_reason})`);
-    return out;
-  } finally {
-    clearTimeout(t);
-  }
-}
 
 type PageInfo = { url: string; title?: string; description?: string | null; h1?: string[]; h2?: string[] };
 type About = { summary: string; whatItIs: string; audience: string; offerings: string[]; sections: string[]; tone: string; mainAction: string };

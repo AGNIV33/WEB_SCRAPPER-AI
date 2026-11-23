@@ -1,33 +1,11 @@
 import { rateLimit } from "@/lib/rateLimit";
-import tls from "node:tls";
+import { certInfo } from "@/lib/cert";
 import { normalizeUrl, safeFetch, assertPublicHost } from "@/lib/url";
+import { detectStack } from "@/lib/stack";
 
 export const maxDuration = 30;
 
 type Check = { name: string; ok: boolean; severity: "high" | "medium" | "low" | "info"; detail: string };
-
-function certInfo(host: string): Promise<Record<string, unknown>> {
-  return new Promise((resolve) => {
-    const sock = tls.connect({ host, port: 443, servername: host, timeout: 8000, rejectUnauthorized: false }, () => {
-      const c = sock.getPeerCertificate();
-      const validTo = c.valid_to ? new Date(c.valid_to) : null;
-      resolve({
-        valid: sock.authorized,
-        error: sock.authorizationError ? String(sock.authorizationError) : null,
-        protocol: sock.getProtocol(),
-        issuer: c.issuer?.O || c.issuer?.CN || null,
-        subject: c.subject?.CN || null,
-        validFrom: c.valid_from || null,
-        validTo: c.valid_to || null,
-        daysLeft: validTo ? Math.round((validTo.getTime() - Date.now()) / 86400000) : null,
-        altNames: (c.subjectaltname || "").split(", ").slice(0, 10),
-      });
-      sock.end();
-    });
-    sock.on("error", (e) => resolve({ valid: false, error: e.message }));
-    sock.on("timeout", () => { sock.destroy(); resolve({ valid: false, error: "timeout" }); });
-  });
-}
 
 export async function POST(req: Request) {
   const limited = await rateLimit(req, "site");
@@ -39,6 +17,9 @@ export async function POST(req: Request) {
     const { res, finalUrl, redirects } = await safeFetch(u.toString());
     const h = Object.fromEntries(res.headers.entries());
     const final = new URL(finalUrl);
+    // Home page HTML for the tech stack detector (first ~1.5 MB is plenty)
+    const html = /html|text/.test(h["content-type"] || "text/html") ? await res.text().then((t) => t.slice(0, 1_500_000)).catch(() => "") : "";
+    const stack = detectStack(html, h);
 
     const checks: Check[] = [];
     const has = (k: string) => k in h;
@@ -88,7 +69,7 @@ export async function POST(req: Request) {
     if (h["x-powered-by"]) hosting.push(`Powered by: ${h["x-powered-by"]}`);
 
     return Response.json({
-      finalUrl, status: res.status, redirects, headers: h, checks, ssl, hosting,
+      finalUrl, status: res.status, redirects, headers: h, checks, ssl, hosting, stack,
       robots, hasSitemap: !!sitemapHead && /<(urlset|sitemapindex)/.test(sitemapHead), securityTxt: !!securityTxt,
       compression: h["content-encoding"] || null,
     });

@@ -1,8 +1,17 @@
 # CHANGELOG
 
-All dates 2026-11-21. Newest first. Commit hashes in brackets.
+Dates 2026-11-21 unless noted. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- **Five new analysis features (Nov 23)**:
+  - **Tech stack detector**: `/api/site` now reads the home page HTML, headers and cookies and matches 130+ technologies (CMS, site builders, e-commerce, frameworks, back-end, hosting/CDN, web servers, analytics, ads, marketing, chat, payments, security, cookie consent, video, maps…), merged with the live-page check and grouped by category on the Tech Stack screen.
+  - **SEO fixes** (new Grow → SEO fixes screen, `/api/seofix`): per-page issues with ready-to-paste code and copy buttons, plus sitemap.xml, robots.txt and JSON-LD; NVIDIA NIM writes new titles and descriptions.
+  - **Google speed score + carbon** (Speed screen, `/api/speed`): PageSpeed Insights for phone and computer, real-visitor data, top tips; CO₂ per visit with A+–F rating (CO2.js, SWD v4) and green hosting check.
+  - **Trust check** (Audit → Trust check, `/api/trust`): Safe Browsing, HTTPS/SSL, domain age and renewal (RDAP), contact/privacy/terms/about pages → score and verdict.
+  - **Competitor finder** (Grow → Competitors, `/api/competitors`): Gemini with Google Search finds real competitors with sources; "Analyze this site" button.
+  - The four extra results run in parallel with the AI step and are saved with the analysis. New env vars: `GOOGLE_API_KEY`, `GEMINI_API_KEY` (optional `GEMINI_MODEL`, `PAGESPEED_API_KEY`, `SAFE_BROWSING_API_KEY`).
+  - Shared helpers: `lib/nim.ts` (NIM chat), `lib/gate.ts` (sign-in + limits), `lib/cert.ts` (TLS cert).
+- **Admin dashboard and Contact us (Nov 22-23)**: admin-only dashboard (usage, users, plans, errors, graphs, feedback inbox with replies), Contact us page for signed-in users, admin check via `/api/me` and verified `ADMIN_EMAILS`, Verify email buttons in the account menu.
 - **Mobile responsive**: two-row phone header (logo + icons, then full-width URL + Analyze), icon-only login on phones, cards can no longer stretch the page sideways (min-w-0), About card badge wraps. Checked every view at 390px: no horizontal scrolling.
 - `NEXT_PUBLIC_DISABLE_AUTH=1` switches accounts off for local testing.
 - **Round 2 features**: Google sign-in; **guest mode** (no account: 1 page, colours/fonts/animations/tech only, other pages locked; server checks the Firebase ID token with jose); **free plan limits** (10 websites x 5 scans, usage in users/{uid}/meta/usage, counts can only go up via rules, server re-checks before each scan, 402 -> Plans page); **Plans page** with demo checkout (no payment taken); **What changed?** (compare two scans of a site, scores, pages, colours, fonts, tech, security, broken links, page text); **Compare websites** side by side; **Share link** (public read-only /share/[id], Firestore shares collection). firestore.rules updated (must be re-published).

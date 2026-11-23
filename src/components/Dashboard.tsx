@@ -13,21 +13,25 @@ import ExportMenu from "@/components/ExportMenu";
 import MediaView from "@/components/MediaView";
 import ScreenshotGallery from "@/components/ScreenshotGallery";
 import { A11yView, SpeedView } from "@/components/AuditViews";
+import { CompetitorsView, SeoFixView, SpeedScore, StackView, TrustView } from "@/components/InsightViews";
+import type { Extras } from "@/lib/insights";
 import CodeView from "@/components/CodeView";
 import { LockedCard } from "@/components/PlanViews";
 import ShareButton from "@/components/ShareButton";
 import { contrast, type PageResult, type SiteResult, type Summary } from "@/lib/report";
 
-export type View = "overview" | "colors" | "fonts" | "pages" | "screenshots" | "media" | "speed" | "a11y" | "code" | "animations" | "security" | "suggestions" | "design" | "tech";
+export type View = "overview" | "colors" | "fonts" | "pages" | "screenshots" | "media" | "speed" | "a11y" | "code" | "animations" | "security" | "suggestions" | "design" | "tech" | "trust" | "seofix" | "competitors";
 export type AiResult = {
   ai: boolean; model?: string; note?: string; error?: string | null;
   suggestions: { area: string; priority: string; title: string; detail: string }[];
   designMd: string; rawDesignMd?: string;
   about?: { summary: string; whatItIs: string; audience: string; offerings: string[]; sections: string[]; tone: string; mainAction: string };
+  extras?: Extras; // saved with the analysis so history shows them too
 };
 type Props = {
   view: View; setView: (v: View) => void; pages: PageResult[]; site: SiteResult | null; summary: Summary | null;
-  ai: AiResult | null; busy: boolean; meta: { startedAt: Date; seconds: number } | null; onRecrawl?: () => void; guest?: boolean; onLogin?: () => void; readOnly?: boolean; siteIcon?: string | null;
+  ai: AiResult | null; busy: boolean; meta: { startedAt: Date; seconds: number } | null; onRecrawl?: () => void;
+  extras?: Extras | null; onAnalyze?: (url: string) => void; guest?: boolean; onLogin?: () => void; readOnly?: boolean; siteIcon?: string | null;
 };
 
 /** Re-crawl action for saved analyses (they have no screenshots). */
@@ -209,7 +213,7 @@ const Dashboard = memo(function Dashboard(props: Props) {
 });
 export default Dashboard;
 
-function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta, guest, onLogin, readOnly, siteIcon }: Props) {
+function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta, guest, onLogin, readOnly, siteIcon, extras, onAnalyze }: Props) {
   /** Guests see these cards blurred with a "Sign in" button. */
   const lock = (meta: { title: string; icon: React.ElementType; teaser: string; compact?: boolean }, node: React.ReactNode) => (guest && onLogin ? <LockedCard onLogin={onLogin} {...meta} /> : node);
   useGoogleFonts(s?.typography.families.map((f) => f.value) || []);
@@ -412,7 +416,10 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
 
       {view === "pages" && <PagesTable pages={pages} full />}
 
-      {view === "speed" && <SpeedView pages={pages} />}
+      {view === "speed" && <div className="grid gap-5"><SpeedScore speed={extras?.speed} busy={busy} /><SpeedView pages={pages} /></div>}
+      {view === "trust" && <TrustView trust={extras?.trust} busy={busy} />}
+      {view === "seofix" && <SeoFixView data={extras?.seoFixes} busy={busy} />}
+      {view === "competitors" && <CompetitorsView data={extras?.competitors} busy={busy} onCompare={readOnly ? undefined : onAnalyze} />}
       {view === "code" && <CodeView summary={s} host={hostOf(home?.finalUrl || pages[0]?.url)} />}
       {view === "a11y" && <A11yView pages={pages} />}
       {view === "media" && <MediaView pages={pages} host={hostOf(home?.finalUrl || pages[0]?.url)} />}
@@ -504,8 +511,8 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
 
       {view === "tech" && (
         <div className="grid gap-5 lg:grid-cols-2">
-          <Card title="Front-end" icon={Layers}>{s.tech.length ? <div className="flex flex-wrap gap-2">{s.tech.map((t) => <Badge key={t.name} tone="violet">{t.name}{t.version ? ` ${t.version}` : ""}</Badge>)}</div> : <p className={`text-sm ${muted}`}>Nothing detected.</p>}</Card>
-          <Card title="Hosting / server" icon={Globe}>{s.hosting.length ? <div className="flex flex-wrap gap-2">{s.hosting.map((h) => <Badge key={h} tone="blue">{h}</Badge>)}</div> : <p className={`text-sm ${muted}`}>No hints in headers.</p>}</Card>
+          <StackView browser={s.tech} server={site?.stack} />
+          {!site?.stack && <Card title="Hosting / server" icon={Globe} className="lg:col-span-2">{s.hosting.length ? <div className="flex flex-wrap gap-2">{s.hosting.map((h) => <Badge key={h} tone="blue">{h}</Badge>)}</div> : <p className={`text-sm ${muted}`}>No hints in headers.</p>}</Card>}
           <Card title="Performance by page" icon={Gauge} className="lg:col-span-2">
             <div className="overflow-x-auto"><table className="w-full text-sm"><thead className={`text-left text-xs ${muted}`}><tr><th className="py-2">Page</th><th>TTFB</th><th>DOM ready</th><th>Load</th><th>Requests</th><th>Size</th><th>DOM nodes</th></tr></thead>
               <tbody>{s.performance.pages.map((p) => <tr key={p.url} className="border-t border-slate-100 dark:border-white/5"><td className="max-w-xs truncate py-2">{pathOf(p.url)}</td><td>{p.ttfb}ms</td><td>{p.domContentLoaded}ms</td><td>{p.load}ms</td><td>{p.requests}</td><td>{p.transferKB} KB</td><td>{p.domNodes}</td></tr>)}</tbody></table></div>

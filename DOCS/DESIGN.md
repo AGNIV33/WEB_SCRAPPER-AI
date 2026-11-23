@@ -23,7 +23,7 @@
 - Page title 20px bold, card titles 16px semibold, stats 30px bold, body 14px, captions 12px.
 
 ## Layout
-- Fixed left sidebar 256px (`lg` and up); slides in from a hamburger on small screens.
+- Fixed left sidebar 256px (`lg` and up); slides in from a hamburger on small screens. Groups: Overview, Design, Content, Audit (incl. Trust check), Grow (SEO fixes, Competitors), Account, then Admin dashboard (admins only), Contact us and Settings.
 - Sticky top bar: URL input, page limit, gradient **Analyze** button, theme toggle, bell, avatar / Log in.
 - Content padding 16px mobile, 32px desktop; grid gap 20px.
 - Overview grid: 4 stat cards → palette + fonts → pages + screenshots + security → animations + AI suggestions + design.md.
@@ -38,6 +38,9 @@
 | Primary button | gradient indigo→violet, white text, radius 12px, shadow `indigo-500/30` |
 | Nav item | 14px medium; active = gradient pill with white text |
 | Code preview | mono 12px, line numbers, headings in indigo |
+| Code fix block | dark `slate-900` box, mono 12px, Copy button top-right (SEO fixes) |
+| Score ring | 84px ring, green ≥ 90, amber 50-89, red < 50 (Google speed score) |
+| Verdict banner | gradient icon tile (green safe / amber caution / red risky) + score /100 (Trust check) |
 
 ## Motion (GSAP)
 - Cards: slide up 28px + fade, 0.6 s, `power3.out`, stagger 0.06 s.

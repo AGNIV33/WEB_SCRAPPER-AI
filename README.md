@@ -1,8 +1,8 @@
 # Scrapper AI: Website Analyzer
 
-Paste any website link and get a full dashboard of its design, content, speed, security and SEO in about a minute. It also writes a ready-to-use `design.md`, design tokens and React + Tailwind components, so you can rebuild a site's look or audit your own.
+Paste any website link and get a full dashboard of its design, content, speed, security, SEO, trust and competitors in about a minute. It also writes a ready-to-use `design.md`, design tokens and React + Tailwind components, so you can rebuild a site's look or audit your own.
 
-Built with Next.js, headless Chrome and a free NVIDIA AI model. Crafted by **Agniv Sarkar**.
+Built with Next.js, headless Chrome, a free NVIDIA AI model and free Google APIs (PageSpeed, Safe Browsing, Gemini). Crafted by **Agniv Sarkar**.
 
 ---
 
@@ -15,6 +15,7 @@ Built with Next.js, headless Chrome and a free NVIDIA AI model. Crafted by **Agn
 - [Login and history (Firebase)](#login-and-history-firebase)
 - [Deploy on Vercel](#deploy-on-vercel)
 - [Environment variables](#environment-variables)
+- [Free API keys (step by step)](#free-api-keys-step-by-step)
 - [How it works](#how-it-works)
 - [Safety and limits](#safety-and-limits)
 - [Project docs](#project-docs)
@@ -43,14 +44,21 @@ Built with Next.js, headless Chrome and a free NVIDIA AI model. Crafted by **Agn
 - **Media downloader:** every image, GIF and video found on the site. Preview them, download one at a time or get everything as a ZIP.
 - **Asset kit ZIP:** logo, favicon, images, colours and fonts in one download.
 - **About this website:** an AI summary of what the site is and who it is for.
-- **Tech stack:** frameworks, CMS, analytics and hosting.
+- **Tech stack detector:** 130+ technologies grouped by type (CMS, site builder, e-commerce, framework, back-end, hosting/CDN, web server, analytics, ads, marketing, chat, payments, security, cookie consent and more). Found from the live page, the page code, response headers and cookies, with versions where shown.
 
 ### Audit
 - **Security (passive checks only):** security headers, SSL certificate, HTTP to HTTPS redirect, mixed content, cookies and outdated libraries.
 - **SEO and links:** meta tags, headings, image alt text, sitemap and robots.txt, plus a broken link (404) check.
 - **Core Web Vitals:** LCP, CLS, TBT and FCP for each page, with good / needs work / poor ratings.
+- **Google speed score:** the official PageSpeed Insights score (0-100) for phone and computer, lab metrics, real-visitor data from Chrome (when Google has it) and the top "how to make it faster" tips.
+- **Carbon per visit:** grams of CO₂ per page view and an A+ to F rating (Sustainable Web Design model v4 via CO2.js), green hosting check (Green Web Foundation) and a yearly estimate for 10,000 visits a month.
+- **Trust check (scam check):** a trust score and a simple verdict (looks trustworthy, be careful, high risk) from Google Safe Browsing, HTTPS and the SSL certificate, domain age, renewal date and registrar (RDAP), and whether the site has contact, privacy, terms and about pages.
 - **Accessibility audit:** powered by axe-core, grouped by impact, with the exact elements to fix.
 - **AI suggestions:** practical fixes for design, content, code and UX.
+
+### Grow
+- **SEO fixes with ready-to-paste code:** every SEO problem per page with a simple fix and a copy button: `<title>`, meta description, H1, canonical, Open Graph / X tags, alt text, lang, viewport, noindex, plus a ready `sitemap.xml`, `robots.txt` and JSON-LD for the site. AI (NVIDIA) writes new titles and descriptions; all tags and URLs come from the measured data.
+- **Competitor finder:** Google Gemini with live Google Search finds up to 6 real competitors, says why each one competes and what it does well, and lists the sources. One click analyses a competitor.
 
 ### Account
 - **Sign in** with email and password or with Google. Your Google photo and name show in the top bar.
@@ -78,7 +86,7 @@ Built with Next.js, headless Chrome and a free NVIDIA AI model. Crafted by **Agn
 - **Greeting:** a new friendly greeting with your name and an emoji each time you log in.
 - **Quick tour:** a short guided tour for new sign-ups that shows once. Replay it any time from **Settings → Quick tour**.
 - **Notifications:** a bell with an unread badge for finished scans, saves, failures and plan limits. It can also show a desktop alert when a scan finishes while you are on another tab.
-- **Sidebar** grouped into collapsible Design, Content, Audit and Account sections, and it can collapse to icons.
+- **Sidebar** grouped into collapsible Design, Content, Audit, Grow and Account sections, and it can collapse to icons.
 - **Settings:** theme, glass mode, site background and blur, site theme, animations and the default number of pages.
 - **Mobile friendly:** every screen works on phones.
 
@@ -91,7 +99,7 @@ Built with Next.js, headless Chrome and a free NVIDIA AI model. Crafted by **Agn
 | Pages per scan | 1 | As many as you choose | As many as you choose |
 | Sites | Any | 10 different sites | Unlimited |
 | Scans per site | Any | 5 | Unlimited |
-| Locked screens | Design.md, code, media, audits, exports and more | None | None |
+| Locked screens | Design.md, code, media, audits, trust, SEO fixes, competitors, exports and more | None | None |
 | History, compare, what changed, share | No | Yes | Yes |
 
 The Pro plan uses a **demo checkout page**. No real payment is taken.
@@ -105,6 +113,8 @@ The Pro plan uses a **demo checkout page**. No real payment is taken.
 - **puppeteer-core** with local Chrome, and **@sparticuz/chromium** on Vercel
 - **axe-core** for accessibility checks
 - **NVIDIA NIM** (free, OpenAI-compatible API) for the AI text
+- **Google PageSpeed Insights**, **Google Safe Browsing** and **Gemini** (with Google Search grounding), all on free tiers
+- **CO2.js** (Green Web Foundation) for the carbon estimate, **RDAP** for domain age
 - **Firebase Auth + Firestore** for login, history, usage limits and share links
 - **jsPDF**, **ExcelJS** and **JSZip** for exports
 - Optional **Upstash Redis** for rate limits shared across servers
@@ -150,7 +160,7 @@ Each user can only read and write their own data. This is enforced by the Firest
 ## Deploy on Vercel
 
 1. Import this repository at https://vercel.com/new
-2. Add the environment variables below (at least `NVIDIA_API_KEY`, plus the Firebase values if you want login).
+2. Add the environment variables below (at least `NVIDIA_API_KEY`, plus the Firebase values if you want login, and `GOOGLE_API_KEY` + `GEMINI_API_KEY` for the speed score, trust check and competitors).
 3. Deploy. Every push to `main` deploys again automatically.
 
 Notes:
@@ -167,6 +177,10 @@ Notes:
 | `NVIDIA_API_KEY` | Recommended | Free key from build.nvidia.com for AI suggestions, the site summary and design.md |
 | `NVIDIA_MODEL` | No | Change the AI model (any chat model on build.nvidia.com) |
 | `NVIDIA_FALLBACK_MODEL` | No | Model to use if the main one fails |
+| `GOOGLE_API_KEY` | Recommended | Free Google Cloud API key with **PageSpeed Insights API** and **Safe Browsing API** turned on. Used for the speed score and the trust check |
+| `PAGESPEED_API_KEY` / `SAFE_BROWSING_API_KEY` | No | Use these instead if you want separate keys |
+| `GEMINI_API_KEY` | For competitors | Free key from Google AI Studio (aistudio.google.com → Get API key) |
+| `GEMINI_MODEL` | No | Gemini model (default `gemini-flash-latest`, falls back to `gemini-2.5-flash`) |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | For login | Firebase web app config |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | For login | Firebase web app config |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | For login | Firebase web app config |
@@ -182,6 +196,28 @@ Never commit `.env.local`. It is already in `.gitignore`.
 
 ---
 
+## Free API keys (step by step)
+
+Every key is free. Without a key the app still works; that section just shows a short note.
+
+**Google key (speed score + trust check)**
+1. Open https://console.cloud.google.com and create a project (any name).
+2. Go to **APIs & Services → Library**. Turn on **PageSpeed Insights API** and **Safe Browsing API**.
+3. Go to **APIs & Services → Credentials → Create credentials → API key**. Copy it.
+4. Optional but safer: **Edit API key → API restrictions → Restrict key** to those two APIs.
+5. Add it as `GOOGLE_API_KEY`.
+
+**Gemini key (competitor finder)**
+1. Open https://aistudio.google.com and sign in.
+2. Click **Get API key → Create API key**. Copy it.
+3. Add it as `GEMINI_API_KEY`.
+
+**Add keys to Vercel:** Vercel → your project → **Settings → Environment Variables** → add the name and value → Save → **Deployments → Redeploy**. For your PC, add the same lines to `.env.local` and restart `npm run dev`.
+
+Note: Google's Safe Browsing API is free for non-commercial use. For a paid product, Google asks you to use the Web Risk API instead.
+
+---
+
 ## How it works
 
 | API route | Job |
@@ -192,8 +228,13 @@ Never commit `.env.local`. It is already in `.gitignore`.
 | `/api/links` | Checks links for 404s |
 | `/api/media` | Safely downloads images and videos for the media downloader |
 | `/api/ai` | NVIDIA NIM: site summary, suggestions and design.md |
+| `/api/speed` | Google PageSpeed score (phone + computer) and carbon per visit |
+| `/api/trust` | Trust check: Safe Browsing, SSL, domain age (RDAP) and trust pages |
+| `/api/seofix` | SEO fix list with ready-to-paste code (AI writes titles and descriptions) |
+| `/api/competitors` | Gemini + Google Search: real competitors with sources |
+| `/api/me` | Tells the app if the signed-in user is an admin |
 
-The browser runs the scan step by step (discover, then pages two at a time, then links, then AI), so each server call stays short.
+The browser runs the scan step by step (discover, then pages two at a time, then links, then AI together with speed, trust, SEO fixes and competitors), so each server call stays short.
 
 ---
 
@@ -201,7 +242,7 @@ The browser runs the scan step by step (discover, then pages two at a time, then
 
 - **Passive security checks only.** The app reads public headers and pages. It never attacks or probes a site.
 - **SSRF guard.** Private and local network addresses are blocked.
-- **Rate limits per visitor** (per hour): 15 discovers, 200 page scans, 30 site checks, 30 link checks, 15 AI calls and 600 media downloads, plus a daily cap on AI calls.
+- **Rate limits per visitor** (per hour): 15 discovers, 200 page scans, 30 site checks, 30 link checks, 15 AI calls, 600 media downloads, 20 speed scores, 30 trust checks, 15 SEO fix lists and 10 competitor searches, plus a daily cap on AI calls.
 - Please only analyse sites you are allowed to, and respect each site's terms.
 
 ---
