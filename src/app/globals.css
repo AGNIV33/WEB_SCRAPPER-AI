@@ -119,6 +119,11 @@ body {
 
 /* round metal buttons that match the toggle (glass mode, notifications) */
 .tt.tt-round { width: 40px; height: 40px; }
+/* phones: slightly smaller so logo, glass, theme, bell and avatar fit on one row */
+@media (max-width: 639px) {
+  .tt { width: 60px; height: 36px; }
+  .tt.tt-round { width: 36px; height: 36px; }
+}
 .tt-icon {
   position: relative; color: #55555f;                             /* engraved, unlit */
   filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.9)) drop-shadow(0 -1px 0 rgba(0, 0, 0, 0.3));

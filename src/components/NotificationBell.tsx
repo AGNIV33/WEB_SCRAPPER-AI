@@ -29,12 +29,12 @@ export default function NotificationBell({ notes, unread, markAllRead, remove, c
 
   function toggle() {
     if (open) markAllRead(); // opened and seen: clear the badge when closing
-    else { const r = ref.current!.getBoundingClientRect(); setPos({ top: r.bottom + 10, right: Math.max(8, window.innerWidth - r.right) }); }
+    else { const r = ref.current!.getBoundingClientRect(); setPos({ top: r.bottom + 10, right: window.innerWidth < 640 ? 8 : Math.max(8, window.innerWidth - r.right) }); /* phones: pin to screen edge so the panel is not cut off */ }
     setOpen(!open);
   }
 
   return (
-    <div ref={ref} className="relative hidden sm:block">
+    <div ref={ref} className="relative shrink-0">
       <button type="button" onClick={toggle} aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} aria-expanded={open} title="Notifications" className="tt tt-round">
         <span className="tt-sheen" aria-hidden /><Bell size={18} strokeWidth={2.2} className="tt-icon" />
       </button>
@@ -75,7 +75,7 @@ export default function NotificationBell({ notes, unread, markAllRead, remove, c
                     <div className="mt-1 text-[11px] text-slate-400">{ago(n.at)}</div>
                   </button>
                   {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-indigo-500" aria-label="Unread" />}
-                  <button onClick={() => remove(n.id)} aria-label="Dismiss" className="shrink-0 self-start text-slate-400 opacity-0 transition group-hover:opacity-100 hover:text-slate-600 focus:opacity-100"><X size={14} /></button>
+                  <button onClick={() => remove(n.id)} aria-label="Dismiss" className="shrink-0 self-start text-slate-400 transition sm:opacity-0 sm:group-hover:opacity-100 hover:text-slate-600 focus:opacity-100"><X size={14} /></button>
                 </div>
               );
             })}
