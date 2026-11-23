@@ -10,6 +10,9 @@
 
 html { color-scheme: light; }
 html.dark { color-scheme: dark; }
+/* No page scrollbars (the user asked). Pages still scroll with wheel, touch and keys; nothing scrolls sideways. */
+html, body { overflow-x: clip; scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
 
 body {
   font-family: var(--font-inter), system-ui, sans-serif;
