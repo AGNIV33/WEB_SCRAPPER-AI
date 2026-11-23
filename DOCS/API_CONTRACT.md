@@ -156,7 +156,7 @@ Tags, URLs, sitemap, robots.txt and JSON-LD are built from measured data. NIM on
 
 **Response** (`CompetitorResult`)
 ```json
-{ "summary": "…", "model": "gemini-flash-latest",
+{ "summary": "…", "model": "gemini-2.5-flash",
   "competitors": [{ "name": "Acme", "url": "https://acme.com", "why": "…", "strengths": "…" }],
   "sources": [{ "title": "acme.com", "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/…" }] }
 ```
