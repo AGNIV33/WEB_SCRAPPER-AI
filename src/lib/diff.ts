@@ -1,7 +1,9 @@
 /* Compares two analyses (two scans of one site, or two different sites). Pure functions. */
 import type { PageResult, Summary } from "./report";
+import type { Extras } from "./insights";
+import { mergeA11y } from "./a11y";
 
-export type Snapshot = { summary: Summary; pages: PageResult[]; meta?: { startedAt: Date; seconds: number } | null; label?: string };
+export type Snapshot = { summary: Summary; pages: PageResult[]; meta?: { startedAt: Date; seconds: number } | null; label?: string; ai?: { extras?: Extras } | null };
 
 const avg = (xs: (number | null | undefined)[]) => { const v = xs.filter((x): x is number => typeof x === "number"); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
 const pathOf = (u: string) => { try { const x = new URL(u); return x.pathname + x.search; } catch { return u; } };
@@ -14,7 +16,10 @@ export function metrics(s: Snapshot) {
     loadMs: s.summary.performance.avgLoadMs,
     pages: s.summary.pagesAnalyzed,
     brokenLinks: s.summary.brokenLinks.length,
+    a11yScore: mergeA11y(ok)?.score ?? null,
     a11yIssues: ok.some((p) => p.a11y) ? ok.reduce((n, p) => n + (p.a11y?.violations.length || 0), 0) : null,
+    speedMobile: s.ai?.extras?.speed?.runs?.find((r) => r.strategy === "mobile")?.score ?? null,
+    trust: s.ai?.extras?.trust?.score ?? null,
     lcp: avg(ok.map((p) => p.vitals?.lcp)),
     cls: avg(ok.map((p) => p.vitals?.cls)),
     tbt: avg(ok.map((p) => p.vitals?.tbt)),
@@ -24,7 +29,7 @@ export function metrics(s: Snapshot) {
 }
 
 /** Which metrics are better when higher. */
-export const HIGHER_IS_BETTER: Record<string, boolean> = { security: true, seo: true, pages: true, words: true, loadMs: false, brokenLinks: false, a11yIssues: false, lcp: false, cls: false, tbt: false, transferKB: false };
+export const HIGHER_IS_BETTER: Record<string, boolean> = { security: true, seo: true, a11yScore: true, speedMobile: true, trust: true, pages: true, words: true, loadMs: false, brokenLinks: false, a11yIssues: false, lcp: false, cls: false, tbt: false, transferKB: false };
 
 const setDiff = (a: string[], b: string[]) => ({ added: b.filter((x) => !a.includes(x)), removed: a.filter((x) => !b.includes(x)), same: a.filter((x) => b.includes(x)) });
 

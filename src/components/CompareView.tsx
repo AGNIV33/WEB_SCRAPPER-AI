@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Columns2, Trophy, Loader2, Check, X } from "lucide-react";
+import { Columns2, Trophy, Loader2, Check, X, Sparkles } from "lucide-react";
+import { reportFacts } from "@/lib/reportFacts";
+import { askApi } from "@/lib/aiClient";
+import MiniMarkdown from "@/components/MiniMarkdown";
 import { listAnalyses, loadAnalysis, type HistoryItem } from "@/lib/history";
 import { metrics, HIGHER_IS_BETTER, type Snapshot } from "@/lib/diff";
 import { fmtMetric } from "@/components/ChangesView";
@@ -10,7 +13,7 @@ import type { AiResult } from "@/components/Dashboard";
 
 const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
 const muted = "text-slate-500 dark:text-slate-400";
-const LABEL: Record<string, string> = { security: "Security score", seo: "SEO score", loadMs: "Avg load time", pages: "Pages analysed", brokenLinks: "Broken links", a11yIssues: "Accessibility issues", lcp: "LCP (main content)", cls: "CLS (layout shift)", tbt: "TBT (busy time)", words: "Words per page", transferKB: "Page size" };
+const LABEL: Record<string, string> = { security: "Security score", seo: "SEO score", loadMs: "Avg load time", pages: "Pages analysed", brokenLinks: "Broken links", a11yScore: "Accessibility score", a11yIssues: "Accessibility issues", speedMobile: "Google speed (phone)", trust: "Trust score", lcp: "LCP (main content)", cls: "CLS (layout shift)", tbt: "TBT (busy time)", words: "Words per page", transferKB: "Page size" };
 const hostOf = (s: Snapshot) => { try { return new URL(s.summary.url || s.pages[0].url).hostname; } catch { return "site"; } };
 
 /** Side-by-side comparison of two analyses (yours vs a competitor). Sources: current analysis + saved history. */
@@ -41,6 +44,17 @@ export default function CompareView({ current }: { current: (Snapshot & { ai: Ai
     return () => { live = false; };
   }, [key, current]);
   const [A, B] = loaded && loaded.key === key ? loaded.s : [null, null];
+  const [verdict, setVerdict] = useState<{ key: string; text?: string; error?: string; busy?: boolean } | null>(null);
+  const v = verdict && verdict.key === key ? verdict : null;
+  const askVerdict = async () => {
+    if (!A || !B) return;
+    const k = key;
+    setVerdict({ key: k, busy: true });
+    try {
+      const r = await askApi<{ answer: string }>("/api/chat", { mode: "compare", names: [nameOf(a, A), nameOf(b, B)], facts: reportFacts(A), factsB: reportFacts(B) });
+      setVerdict({ key: k, text: r.answer });
+    } catch (e) { setVerdict({ key: k, error: (e as Error).message }); }
+  };
   const loading = !!key && !A;
   const ma = A ? metrics(A) : null, mb = B ? metrics(B) : null;
   let winsA = 0, winsB = 0;
@@ -95,6 +109,15 @@ export default function CompareView({ current }: { current: (Snapshot & { ai: Ai
                     ))}</tbody>
                   </table>
                 </div>
+              </section>
+              <section data-anim="card" className={card}>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="flex items-center gap-2 font-semibold"><Sparkles size={18} className="text-indigo-500" /> AI verdict</h3>
+                  <button onClick={askVerdict} disabled={v?.busy} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-600 disabled:opacity-60">{v?.busy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}{v?.busy ? "Comparing…" : v?.text ? "Ask again" : "Who wins and why?"}</button>
+                </div>
+                {!v && <p className={`text-sm ${muted}`}>Get a plain-English winner, where each site is better, and what each should copy from the other.</p>}
+                {v?.error && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-500/15 dark:text-amber-200">{v.error}</p>}
+                {v?.text && <MiniMarkdown text={v.text} />}
               </section>
               <div className="grid gap-5 md:grid-cols-2">
                 <section data-anim="card" className={card}><h3 className="mb-3 font-semibold">{nameOf(a, A)}</h3>{col(A)}</section>

@@ -53,8 +53,11 @@ Built with Next.js, headless Chrome, a free NVIDIA AI model and free Google APIs
 - **Google speed score:** the official PageSpeed Insights score (0-100) for phone and computer, lab metrics, real-visitor data from Chrome (when Google has it) and the top "how to make it faster" tips.
 - **Carbon per visit:** grams of CO₂ per page view and an A+ to F rating (Sustainable Web Design model v4 via CO2.js), green hosting check (Green Web Foundation) and a yearly estimate for 10,000 visits a month.
 - **Trust check (scam check):** a trust score and a simple verdict (looks trustworthy, be careful, high risk) from Google Safe Browsing, HTTPS and the SSL certificate, domain age, renewal date and registrar (RDAP), and whether the site has contact, privacy, terms and about pages.
-- **Accessibility audit:** powered by axe-core, grouped by impact, with the exact elements to fix.
+- **Accessibility audit:** powered by axe-core (WCAG 2.1 A/AA), score out of 100, issues grouped by impact, the exact elements, why each one fails (for example the real contrast ratio) and the element's HTML. **Get fix code with AI** writes a simple fix and corrected HTML/CSS for each issue, with a copy button.
 - **AI suggestions:** practical fixes for design, content, code and UX.
+
+### Ask AI
+- **Chat with the report:** ask anything about the scan in plain words ("What should I fix first?", "Is this site safe?"). The AI (NVIDIA NIM, free) only uses the measured facts, so it does not make things up. Starter questions are shown. Needs sign-in.
 
 ### Grow
 - **SEO fixes with ready-to-paste code:** every SEO problem per page with a simple fix and a copy button: `<title>`, meta description, H1, canonical, Open Graph / X tags, alt text, lang, viewport, noindex, plus a ready `sitemap.xml`, `robots.txt` and JSON-LD for the site. AI (NVIDIA) writes new titles and descriptions; all tags and URLs come from the measured data.
@@ -63,7 +66,7 @@ Built with Next.js, headless Chrome, a free NVIDIA AI model and free Google APIs
 ### Account
 - **Sign in** with email and password or with Google. Your Google photo and name show in the top bar.
 - **History:** every analysis is saved to your account (screenshots are not stored, so reopening a scan re-crawls to see them). Reopen or delete any of them.
-- **Compare sites:** two analyses side by side (scores, colours, fonts, speed, tech).
+- **Compare sites:** two analyses side by side (security, SEO, accessibility, Google speed, trust, load time, colours, fonts, tech) with a winner count. **AI verdict** says who wins and why, where each site is better, and what each should copy from the other.
 - **What changed:** compare a new scan of a site with an earlier one and see what changed.
 - **Share link:** create a read-only public link to a report.
 
@@ -239,6 +242,8 @@ Note: Google's Safe Browsing API is free for non-commercial use. For a paid prod
 | `/api/trust` | Trust check: Safe Browsing, SSL, domain age (RDAP) and trust pages |
 | `/api/seofix` | SEO fix list with ready-to-paste code (AI writes titles and descriptions) |
 | `/api/competitors` | Gemini + Google Search: real competitors with sources |
+| `/api/chat` | NVIDIA NIM: chat with the report, and the AI verdict on Compare sites |
+| `/api/a11yfix` | NVIDIA NIM: fix code for accessibility issues |
 | `/api/me` | Tells the app if the signed-in user is an admin |
 
 The browser runs the scan step by step (discover, then pages two at a time, then links, then AI together with speed, trust, SEO fixes and competitors), so each server call stays short.

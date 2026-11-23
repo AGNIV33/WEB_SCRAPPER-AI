@@ -3,6 +3,11 @@
 Dates 2026-11-21 unless noted. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- **Chat, compare and accessibility upgrades (Nov 23)**:
+  - **Ask AI** (new sidebar item under Overview, `/api/chat`): chat with the report. The browser sends a short fact sheet (`lib/reportFacts.ts`: SEO, security, speed, Google score, carbon, accessibility, trust, broken links, design, tech, competitors) and NIM answers only from it. Starter questions, clear chat, simple markdown answers (`MiniMarkdown.tsx`).
+  - **Compare sites**: new rows for accessibility score, Google speed (phone) and trust score (also in What changed); **AI verdict** button (winner, where each is better, what to copy).
+  - **Accessibility**: each issue now shows why it fails (axe `failureSummary`, e.g. contrast ratio) and the element HTML; **Get fix code with AI** (`/api/a11yfix`) writes a fix + corrected HTML/CSS with copy buttons. Shared merge + score in `lib/a11y.ts`. New scans only (older scans have no HTML/why).
+  - Rate limits: chat 40/h, a11yfix 15/h per visitor; both count toward the daily AI cap and need sign-in.
 - **Free-only Gemini**: competitor finder uses only `gemini-2.5-flash` / `gemini-2.5-flash-lite` (free Google Search grounding, 500/day); other models (Gemini 3, Pro) are refused; app-wide daily cap `GEMINI_DAILY_LIMIT` (default 400); quota errors show a friendly note and are never retried. README explains how to never be billed.
 - **Five new analysis features (Nov 23)**:
   - **Tech stack detector**: `/api/site` now reads the home page HTML, headers and cookies and matches 130+ technologies (CMS, site builders, e-commerce, frameworks, back-end, hosting/CDN, web servers, analytics, ads, marketing, chat, payments, security, cookie consent, video, maps…), merged with the live-page check and grouped by category on the Tech Stack screen.

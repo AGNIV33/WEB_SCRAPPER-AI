@@ -56,6 +56,9 @@ Designers and developers who want to study, audit or recreate a website have to 
 | F23 | Google speed score (PageSpeed Insights) + carbon per visit | Done (needs `GOOGLE_API_KEY`) |
 | F24 | Trust / scam check (Safe Browsing, SSL, domain age, trust pages) | Done (Safe Browsing needs `GOOGLE_API_KEY`) |
 | F25 | Competitor finder (Gemini + Google Search) | Done (needs `GEMINI_API_KEY`) |
+| F26 | Chat with the report (Ask AI, answers only from measured facts) | Done |
+| F27 | Compare sites: accessibility/speed/trust rows + AI verdict | Done |
+| F28 | Accessibility: why it fails, element HTML, AI fix code | Done |
 
 ## 7. Success metrics
 - Analysis of 6 pages finishes in < 90 s.

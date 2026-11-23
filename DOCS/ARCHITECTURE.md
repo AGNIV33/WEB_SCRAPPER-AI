@@ -52,6 +52,8 @@ src/
       trust/route.ts    Safe Browsing, TLS cert, RDAP domain age, trust pages → score + verdict
       seofix/route.ts   rule-based SEO fixes with code; NIM writes titles/descriptions
       competitors/route.ts Gemini + google_search tool → competitors + sources
+      chat/route.ts     NIM: chat with the report + Compare AI verdict (answers only from sent facts)
+      a11yfix/route.ts  NIM: fix + corrected HTML/CSS for accessibility issues
       me/route.ts       is the signed-in user an admin (GET)
   components/
     App.tsx             shell: sidebar, top bar, crawl orchestration, auth, save
@@ -65,6 +67,10 @@ src/
     InsightViews.tsx    tech stack (grouped), speed score + carbon, trust check, SEO fixes, competitors
     AdminView.tsx       admin dashboard (usage, users, feedback inbox)
     ContactView.tsx     Contact us (feedback form + status of your messages)
+    ChatView.tsx        Ask AI: chat with the report
+    CompareView.tsx     two analyses side by side + AI verdict
+    AuditViews.tsx      speed (Core Web Vitals) and accessibility (with AI fix code)
+    MiniMarkdown.tsx    safe tiny markdown for AI answers
   lib/
     browser.ts          launches Chrome (local) or sparticuz chromium (Vercel)
     url.ts              normalizeUrl, SSRF guard (assertPublicHost), safeFetch
@@ -80,6 +86,9 @@ src/
     extrasClient.ts     browser: runs the four extra calls in parallel, trust signals from links
     nim.ts              shared NVIDIA NIM chat helper (main + fallback model)
     gate.ts             shared sign-in / blocked / rate-limit / AI-budget check for the extra routes
+    a11y.ts             merges axe-core issues across pages + accessibility score
+    reportFacts.ts      short fact sheet of a report for the AI (chat + compare)
+    aiClient.ts         browser: POST to AI routes with the login token
     cert.ts             TLS certificate reader (used by /api/site and /api/trust)
 firestore.rules         Firestore security rules (paste into Firebase console)
 DOCS/                   project documentation
@@ -101,14 +110,14 @@ DOCS/                   project documentation
 | No screenshots in history | Keeps the database small and free-tier friendly; users re-crawl to see screenshots |
 
 ## Rate limiting
-`src/lib/rateLimit.ts`, per visitor IP per hour: discover 15, page 200, site 30, links 30, ai 15, speed 20, trust 30, seofix 15, competitors 10. Whole app: 300 AI runs/day. Over the AI limit the app still answers with rule-based results. In-memory by default; Upstash Redis if configured.
+`src/lib/rateLimit.ts`, per visitor IP per hour: discover 15, page 200, site 30, links 30, ai 15, speed 20, trust 30, seofix 15, competitors 10, chat 40, a11yfix 15. Whole app: 300 AI runs/day. Over the AI limit the app still answers with rule-based results. In-memory by default; Upstash Redis if configured.
 
 ## Security
 - `assertPublicHost` blocks localhost, private, link-local and CGNAT ranges (override: `ALLOW_PRIVATE_HOSTS=1`, local only).
 - Puppeteer aborts requests to literal private IPs.
 - No secrets in the client. The Firebase web config is public by design; data is protected by Firestore rules.
 - `NVIDIA_API_KEY`, `GOOGLE_API_KEY` and `GEMINI_API_KEY` are server-only.
-- The extra routes (speed, trust, seofix, competitors) need a signed-in user when login is set up, and respect blocked accounts.
+- The extra routes (speed, trust, seofix, competitors, chat, a11yfix) need a signed-in user when login is set up, and respect blocked accounts.
 
 ## Environment variables
 | Name | Where | Required |
@@ -144,3 +153,5 @@ DOCS/                   project documentation
 | `/api/trust` | 30 s |
 | `/api/seofix` | 90 s |
 | `/api/competitors` | 60 s |
+| `/api/chat` | 60 s |
+| `/api/a11yfix` | 90 s |

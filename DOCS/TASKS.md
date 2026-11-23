@@ -28,6 +28,7 @@
 - `bis_skin_checked` hydration warning can still appear in dev with some antivirus browser extensions (harmless, dev only).
 
 ## Done
+- [x] Chat with the report (Ask AI), Compare AI verdict + new rows, accessibility AI fix code
 - [x] Tech stack detector (server rules + live page), SEO fixes with code, Google speed score + carbon, trust check, competitor finder
 - [x] Admin dashboard + Contact us
 - [x] Google sign-in, guest mode, free plan limits, compare, what changed, share link

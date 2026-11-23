@@ -20,7 +20,7 @@ export type PageResult = {
   lite?: boolean; // scanned in the lighter backup mode (very heavy page): no tablet/phone shots or accessibility check
   screenshot?: string; mobileScreenshot?: string | null; tabletScreenshot?: string | null; faviconData?: string | null;
   vitals?: { lcp: number | null; cls: number; tbt: number; fcp: number | null; ratings: Record<"lcp" | "cls" | "tbt" | "fcp", string> } | null;
-  a11y?: { violations: { id: string; impact: string | null; help: string; description: string; helpUrl: string; count: number; targets: string[] }[]; passes: number } | null;
+  a11y?: { violations: { id: string; impact: string | null; help: string; description: string; helpUrl: string; count: number; targets: string[]; html?: string[]; why?: string[] }[]; passes: number } | null;
   colors?: { background: Entry[]; text: Entry[]; border: Entry[] };
   cssVars?: Record<string, string>;
   design?: DesignRaw;

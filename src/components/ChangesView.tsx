@@ -8,7 +8,7 @@ import Select from "@/components/Select";
 
 const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
 const muted = "text-slate-500 dark:text-slate-400";
-const LABEL: Record<string, string> = { security: "Security score", seo: "SEO score", loadMs: "Avg load time", pages: "Pages analysed", brokenLinks: "Broken links", a11yIssues: "Accessibility issues", lcp: "LCP", cls: "CLS", tbt: "TBT", words: "Words per page", transferKB: "Page size" };
+const LABEL: Record<string, string> = { security: "Security score", seo: "SEO score", loadMs: "Avg load time", pages: "Pages analysed", brokenLinks: "Broken links", a11yScore: "Accessibility score", a11yIssues: "Accessibility issues", speedMobile: "Google speed (phone)", trust: "Trust score", lcp: "LCP", cls: "CLS", tbt: "TBT", words: "Words per page", transferKB: "Page size" };
 export const fmtMetric = (k: string, v: number | null) => v == null ? "—" : k === "loadMs" || k === "lcp" ? `${(v / 1000).toFixed(2)} s` : k === "tbt" ? `${Math.round(v)} ms` : k === "cls" ? v.toFixed(3) : k === "transferKB" ? `${Math.round(v)} KB` : String(Math.round(v));
 const fmtDate = (d: string | Date) => new Date(d).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 

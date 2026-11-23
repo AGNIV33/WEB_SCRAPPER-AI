@@ -16,11 +16,12 @@ import { A11yView, SpeedView } from "@/components/AuditViews";
 import { CompetitorsView, SeoFixView, SpeedScore, StackView, TrustView } from "@/components/InsightViews";
 import type { Extras } from "@/lib/insights";
 import CodeView from "@/components/CodeView";
+import ChatView from "@/components/ChatView";
 import { LockedCard } from "@/components/PlanViews";
 import ShareButton from "@/components/ShareButton";
 import { contrast, type PageResult, type SiteResult, type Summary } from "@/lib/report";
 
-export type View = "overview" | "colors" | "fonts" | "pages" | "screenshots" | "media" | "speed" | "a11y" | "code" | "animations" | "security" | "suggestions" | "design" | "tech" | "trust" | "seofix" | "competitors";
+export type View = "overview" | "colors" | "fonts" | "pages" | "screenshots" | "media" | "speed" | "a11y" | "code" | "animations" | "security" | "suggestions" | "design" | "tech" | "trust" | "seofix" | "competitors" | "chat";
 export type AiResult = {
   ai: boolean; model?: string; note?: string; error?: string | null;
   suggestions: { area: string; priority: string; title: string; detail: string }[];
@@ -421,7 +422,8 @@ function DashboardInner({ view, setView, pages, site, summary: s, ai, busy, meta
       {view === "seofix" && <SeoFixView data={extras?.seoFixes} busy={busy} />}
       {view === "competitors" && <CompetitorsView data={extras?.competitors} busy={busy} onCompare={readOnly ? undefined : onAnalyze} />}
       {view === "code" && <CodeView summary={s} host={hostOf(home?.finalUrl || pages[0]?.url)} />}
-      {view === "a11y" && <A11yView pages={pages} />}
+      {view === "a11y" && <A11yView pages={pages} canFix={!readOnly && !guest} />}
+      {view === "chat" && (readOnly ? null : <ChatView summary={s} pages={pages} ai={ai} extras={extras} busy={busy} />)}
       {view === "media" && <MediaView pages={pages} host={hostOf(home?.finalUrl || pages[0]?.url)} />}
 
       {view === "screenshots" && (
