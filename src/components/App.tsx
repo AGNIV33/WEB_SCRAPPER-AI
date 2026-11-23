@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Film, MessageSquare, ShieldCheck, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronRight, LayoutGrid, Code2, BadgeCheck, Wrench, Users, TrendingUp, MessageCircleQuestion, Plus,
+  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, MessageSquare, ShieldCheck, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronRight, LayoutGrid, Code2, BadgeCheck, Wrench, Users, TrendingUp, MessageCircleQuestion, Plus,
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
@@ -542,7 +542,7 @@ export default function App() {
             </div>
             <button type="button" data-tour="glass" onClick={() => updateSettings({ glass: !settings.glass })} aria-label="Toggle glass mode" title="Glass mode"
               aria-pressed={settings.glass} className="tt tt-round ml-auto sm:ml-0">
-              <span className="tt-sheen" aria-hidden /><Sparkles size={19} strokeWidth={2} className="tt-icon" />
+              <span className="tt-sheen" aria-hidden /><Droplets size={18} strokeWidth={2.2} className="tt-icon" />
             </button>
             <span data-tour="theme" className="contents"><ThemeToggle onToggle={() => { updateSettings({ theme: document.documentElement.classList.contains("dark") ? "light" : "dark" }); }} /></span>
             <NotificationBell notes={notify.notes} unread={notify.unread} markAllRead={notify.markAllRead} remove={notify.remove} clear={notify.clear} onOpenNote={(n) => { if (n.view && !isLocked(n.view as View)) setView(n.view as View); }} />

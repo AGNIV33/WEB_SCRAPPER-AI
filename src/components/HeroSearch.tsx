@@ -78,10 +78,10 @@ export default function HeroSearch({ url, setUrl, onStart, target, onPick }: {
       <div data-h="title">
         <h1 className="text-4xl font-extrabold tracking-tight text-[#14123a] dark:text-white sm:text-5xl lg:text-6xl">
           Analyze any{" "}
-          <span className="relative inline-block bg-gradient-to-r from-violet-600 to-purple-500 bg-clip-text text-transparent dark:from-violet-300 dark:to-fuchsia-300">
+          <span className="hero-word relative inline-block">
             website
             <svg viewBox="0 0 200 14" preserveAspectRatio="none" className="absolute -bottom-2 left-[8%] h-2.5 w-[84%] text-violet-500 dark:text-violet-300" aria-hidden>
-              <path d="M3 10 C 60 1, 140 1, 197 7" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" />
+              <path className="hero-line" pathLength={1} d="M3 10 C 60 1, 140 1, 197 7" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" />
             </svg>
           </span>
         </h1>
