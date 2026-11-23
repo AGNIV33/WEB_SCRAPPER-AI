@@ -65,6 +65,7 @@ Built with Next.js, headless Chrome, a free NVIDIA AI model and free Google APIs
 
 ### Account
 - **Sign in** with email and password or with Google. Your Google photo and name show in the top bar.
+- **+ New button:** top of the sidebar (also in the small icon sidebar). Clears the current report and URL and opens the fresh start screen, like "New chat". Your last scan is already saved in History. If a scan is still running, it asks first, then stops it.
 - **History:** every analysis is saved to your account (screenshots are not stored, so reopening a scan re-crawls to see them). Reopen or delete any of them.
 - **Compare sites:** two analyses side by side (security, SEO, accessibility, Google speed, trust, load time, colours, fonts, tech) with a winner count. **AI verdict** says who wins and why, where each site is better, and what each should copy from the other.
 - **What changed:** compare a new scan of a site with an earlier one and see what changed.
