@@ -84,6 +84,15 @@ export async function rateLimit(req: Request, name: keyof typeof RULES): Promise
   return null;
 }
 
+/**
+ * Whole-app daily cap that is ALWAYS on (also on your PC). Used to stay inside free quotas,
+ * e.g. Gemini's free Google Search grounding (500 requests a day). False = cap reached.
+ */
+export async function dailyCap(name: string, limit: number): Promise<boolean> {
+  const g = await hit(`${name}:all`, 86400);
+  return g.count <= limit;
+}
+
 /** Counts one AI run against the whole-app daily cap. False = cap reached (use rule-based results). */
 export async function aiBudgetLeft(admin = false): Promise<boolean> {
   if (!enabled() || admin) return true;

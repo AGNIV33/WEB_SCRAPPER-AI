@@ -119,7 +119,8 @@ DOCS/                   project documentation
 | `GOOGLE_API_KEY` | server | for speed score + Safe Browsing (PageSpeed API + Safe Browsing API turned on) |
 | `PAGESPEED_API_KEY` / `SAFE_BROWSING_API_KEY` | server | no (separate keys instead of `GOOGLE_API_KEY`) |
 | `GEMINI_API_KEY` | server | for competitor finder |
-| `GEMINI_MODEL` | server | no (default `gemini-flash-latest`, then `gemini-2.5-flash`) |
+| `GEMINI_MODEL` | server | no (only free models with free Search grounding: `gemini-2.5-flash` default, `gemini-2.5-flash-lite`) |
+| `GEMINI_DAILY_LIMIT` | server | no (default 400 competitor searches a day, max 450) |
 | `ADMIN_EMAILS` | server | no (admin accounts, verified emails only) |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | client | for login/history |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | client | for login/history |

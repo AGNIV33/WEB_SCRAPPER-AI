@@ -3,6 +3,7 @@
 Dates 2026-11-21 unless noted. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- **Free-only Gemini**: competitor finder uses only `gemini-2.5-flash` / `gemini-2.5-flash-lite` (free Google Search grounding, 500/day); other models (Gemini 3, Pro) are refused; app-wide daily cap `GEMINI_DAILY_LIMIT` (default 400); quota errors show a friendly note and are never retried. README explains how to never be billed.
 - **Five new analysis features (Nov 23)**:
   - **Tech stack detector**: `/api/site` now reads the home page HTML, headers and cookies and matches 130+ technologies (CMS, site builders, e-commerce, frameworks, back-end, hosting/CDN, web servers, analytics, ads, marketing, chat, payments, security, cookie consent, video, maps…), merged with the live-page check and grouped by category on the Tech Stack screen.
   - **SEO fixes** (new Grow → SEO fixes screen, `/api/seofix`): per-page issues with ready-to-paste code and copy buttons, plus sitemap.xml, robots.txt and JSON-LD; NVIDIA NIM writes new titles and descriptions.

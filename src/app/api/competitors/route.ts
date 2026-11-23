@@ -1,15 +1,27 @@
 /**
  * Competitor finder: Google Gemini (free API key) with Google Search grounding, so the
  * competitors are real, current websites found on the web (not guessed).
- * Key: GEMINI_API_KEY. Model: GEMINI_MODEL (default gemini-flash-latest, falls back to gemini-2.5-flash).
+ *
+ * Free only, never billed:
+ * - Default model gemini-2.5-flash: Google's pricing page lists Search grounding as free on the
+ *   free tier for 2.5 Flash / Flash-Lite (500 requests a day, shared). Newer Gemini 3 models and all
+ *   Pro models have NO free Search grounding, so they are refused here.
+ * - The app stops itself at GEMINI_DAILY_LIMIT (default 400) calls a day, under Google's 500.
+ * - A "quota used up" answer is never retried; the user sees a friendly message.
+ * - Keep the Google project for this key WITHOUT a billing account (AI Studio default = free tier).
  */
 import { gate } from "@/lib/gate";
+import { dailyCap } from "@/lib/rateLimit";
 import { parseJson } from "@/lib/nim";
 import type { Competitor, CompetitorResult } from "@/lib/insights";
 
 export const maxDuration = 60;
 
-const MODELS = [...new Set([process.env.GEMINI_MODEL || "gemini-flash-latest", "gemini-2.5-flash"])];
+// Only free-tier models that include free Google Search grounding (Gemini 2.x Flash / Flash-Lite)
+const FREE_OK = /^gemini-2\.[05]-flash(-lite)?(-\d{3})?$/;
+const wanted = (process.env.GEMINI_MODEL || "").trim();
+const MODELS = [...new Set([FREE_OK.test(wanted) ? wanted : "gemini-2.5-flash", "gemini-2.5-flash-lite"])];
+const DAILY = Math.min(Number(process.env.GEMINI_DAILY_LIMIT) || 400, 450);
 
 type GemResp = {
   candidates?: { content?: { parts?: { text?: string }[] }; groundingMetadata?: { groundingChunks?: { web?: { uri?: string; title?: string } }[] } }[];
@@ -38,6 +50,7 @@ export async function POST(req: Request) {
   if (!process.env.GEMINI_API_KEY) return Response.json({ note: "Add GEMINI_API_KEY (free from Google AI Studio) to find competitors." } satisfies CompetitorResult);
   const g = await gate(req, "competitors", { needLogin: true });
   if (g.stop) return g.stop;
+  if (!(await dailyCap("gemini", DAILY))) return Response.json({ note: "The free competitor search has reached today's limit. It resets tomorrow." } satisfies CompetitorResult);
   const { url, title, description, headings = [], text = "" } = (await req.json()) as { url: string; title?: string; description?: string | null; headings?: string[]; text?: string };
   const self = hostOf(url);
   if (!self) return Response.json({ error: "Bad URL" }, { status: 400 });
@@ -61,7 +74,11 @@ Reply with JSON only, no other text:
       if ((e as { status?: number }).status !== 404) break; // only try the next model if this one doesn't exist
     }
   }
-  if (!resp) return Response.json({ error: /quota|429|exhausted/i.test(lastErr) ? "Gemini's free daily limit is used up. Try again tomorrow." : `Gemini: ${lastErr}` } satisfies CompetitorResult);
+  if (!resp) return Response.json(/quota|429|exhausted|rate/i.test(lastErr)
+    ? { note: "Gemini's free limit is used up for now. Try again later (it resets daily)." }
+    : /billing|paid|not available|402|403/i.test(lastErr)
+    ? { note: "This Gemini key can't use free Google Search. Make a new free key in Google AI Studio (no billing)." }
+    : { error: `Gemini: ${lastErr}` } satisfies CompetitorResult);
 
   const cand = resp.candidates?.[0];
   const textOut = (cand?.content?.parts || []).map((p) => p.text || "").join("");

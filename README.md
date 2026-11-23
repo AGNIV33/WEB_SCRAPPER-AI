@@ -180,7 +180,8 @@ Notes:
 | `GOOGLE_API_KEY` | Recommended | Free Google Cloud API key with **PageSpeed Insights API** and **Safe Browsing API** turned on. Used for the speed score and the trust check |
 | `PAGESPEED_API_KEY` / `SAFE_BROWSING_API_KEY` | No | Use these instead if you want separate keys |
 | `GEMINI_API_KEY` | For competitors | Free key from Google AI Studio (aistudio.google.com → Get API key) |
-| `GEMINI_MODEL` | No | Gemini model (default `gemini-flash-latest`, falls back to `gemini-2.5-flash`) |
+| `GEMINI_MODEL` | No | Gemini model. Only free models with free Google Search are allowed (`gemini-2.5-flash` default, `gemini-2.5-flash-lite`); anything else is ignored |
+| `GEMINI_DAILY_LIMIT` | No | Competitor searches per day for the whole app (default 400, max 450; Google gives 500 free) |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | For login | Firebase web app config |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | For login | Firebase web app config |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | For login | Firebase web app config |
@@ -213,6 +214,12 @@ Every key is free. Without a key the app still works; that section just shows a 
 3. Add it as `GEMINI_API_KEY`.
 
 **Add keys to Vercel:** Vercel → your project → **Settings → Environment Variables** → add the name and value → Save → **Deployments → Redeploy**. For your PC, add the same lines to `.env.local` and restart `npm run dev`.
+
+**Never get billed:**
+- Do **not** add a billing account (credit card) to these Google projects. Without billing, Google can't charge you; when a free limit runs out, the app just shows a short "try again later" note.
+- PageSpeed Insights and Safe Browsing have no paid plan, so they are free.
+- Gemini: the app only uses `gemini-2.5-flash` / `gemini-2.5-flash-lite`, the models whose Google Search is free (500 a day). Newer and Pro models charge for Search, so the app refuses them. It also stops itself at 400 searches a day.
+- NVIDIA NIM uses the free key from build.nvidia.com.
 
 Note: Google's Safe Browsing API is free for non-commercial use. For a paid product, Google asks you to use the Web Risk API instead.
 
