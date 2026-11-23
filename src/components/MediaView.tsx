@@ -6,9 +6,10 @@ import { Image as ImageIcon, Film, Music, Shapes, Layers, Star, Download, Eye, C
 import Lightbox, { type Dims, type LightboxItem } from "@/components/Lightbox";
 import { idToken } from "@/lib/firebase";
 import { Package } from "lucide-react";
-import type { MediaItem, PageResult } from "@/lib/report";
+import type { PageResult } from "@/lib/report";
+import { groupMedia, type MediaGroup } from "@/lib/mediaGroup";
 
-type Item = MediaItem & { pages: string[] };
+type Item = MediaGroup;
 const TYPES = [
   { id: "all", label: "All", icon: Layers },
   { id: "image", label: "Images", icon: ImageIcon },
@@ -143,6 +144,19 @@ function MediaInfo({ it, i, dims, onAi }: { it: Item; i: number; dims: Dims; onA
         {row("Found on", pageLabel ? <a href={it.pages[0]} target="_blank" rel="noreferrer noopener" className="text-indigo-300 hover:underline">{pageLabel}</a> : "")}
         {it.pages.length > 1 && row("Used on", `${it.pages.length} pages`)}
       </div>
+      {it.variants.length > 1 && (
+        <div className="mt-5">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-indigo-300">Other sizes of this image ({it.variants.length - 1})</div>
+          <ul className="mt-2 grid gap-1.5">
+            {it.variants.filter((v) => v.url !== it.url).slice(0, 12).map((v) => (
+              <li key={v.url}><a href={v.url} target="_blank" rel="noreferrer noopener" title={v.url} className="flex justify-between gap-3 rounded-lg bg-black/20 px-3 py-2 text-xs hover:bg-white/10">
+                <span className="truncate text-white/70">{/(desktop|mobile|tablet)/i.exec(v.url)?.[1] || decodeURIComponent(v.url.split("?")[1] || "").slice(0, 40) || fileName({ ...it, ...v }, i)}</span>
+                <span className="shrink-0 font-medium">{v.w && v.h ? `${v.w} × ${v.h}` : "Open"}</span>
+              </a></li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -158,14 +172,8 @@ function save(name: string, blob: Blob) {
 const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
 
 export default function MediaView({ pages, host }: { pages: PageResult[]; host: string }) {
-  const items = useMemo(() => {
-    const m = new Map<string, Item>();
-    for (const p of pages) for (const it of p.media || []) {
-      const e = m.get(it.url);
-      if (e) { if (!e.pages.includes(p.url)) e.pages.push(p.url); } else m.set(it.url, { ...it, pages: [p.url] });
-    }
-    return [...m.values()];
-  }, [pages]);
+  // Same picture on many pages / in many sizes is shown once (see lib/mediaGroup.ts)
+  const items = useMemo(() => groupMedia(pages), [pages]);
 
   const [type, setType] = useState<(typeof TYPES)[number]["id"]>("all");
   const [hideTiny, setHideTiny] = useState(true);
@@ -211,7 +219,7 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
           let name = first;
           for (let k = 2; names.has(name.toLowerCase()); k++) name = first.replace(/(\.\w+)?$/, `-${k}$1`);
           names.add(name.toLowerCase());
-          rows.push([aiCache.get(it.url)?.name || niceName(it, i), name, fileName(it, i, b.type), it.w && it.h ? `${it.w}x${it.h}` : "", b.size, b.type, descOf(it), it.pages[0], it.url.startsWith("data:") ? "(inline)" : it.url]);
+          rows.push([aiCache.get(it.url)?.name || niceName(it, i), name, fileName(it, i, b.type), it.w && it.h ? `${it.w}x${it.h}` : "", b.size, b.type, descOf(it), it.pages[0], it.url.startsWith("data:") ? "(inline)" : it.url, it.pages.length, it.variants.length - 1]);
           zip.file(name, b);
         } catch { failed.push(it); }
         setBusy({ done: ++done, total: list.length });
@@ -219,7 +227,7 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
     };
     await Promise.all(Array.from({ length: 4 }, worker));
     // Spreadsheet with each file's details (opens in Excel / Google Sheets)
-    const head = ["Name", "File in ZIP", "Original file name", "Dimensions", "Size (bytes)", "Type", "Description", "Found on page", "Source URL"];
+    const head = ["Name", "File in ZIP", "Original file name", "Dimensions", "Size (bytes)", "Type", "Description", "Found on page", "Source URL", "Found on (pages)", "Other sizes"];
     zip.file("images-info.csv", "\uFEFF" + [head, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n"));
     if (failed.length) zip.file("NOT-INCLUDED.txt", "These files were too big (over 4 MB) or blocked by the website. Open them directly:\n\n" + failed.map((f) => f.url).join("\n"));
     save(zipName, await zip.generateAsync({ type: "blob" }));
@@ -295,7 +303,7 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
                 <div className="truncate text-xs font-medium" title={it.url.startsWith("data:") ? "inline SVG" : it.url}>{it.url.startsWith("data:") ? `Inline ${it.type.toUpperCase()}` : fileName(it, i)}</div>
                 <div className="mt-0.5 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                   <span>{it.type}{it.w && it.h ? ` · ${it.w}×${it.h}` : ""}{it.size ? ` · ${it.size > 1048576 ? (it.size / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(it.size / 1024)) + " KB"}` : ""}</span>
-                  <span>{it.pages.length > 1 ? `${it.pages.length} pages` : ""}</span>
+                  <span>{[it.variants.length > 1 ? `${it.variants.length} sizes` : "", it.pages.length > 1 ? `${it.pages.length} pages` : ""].filter(Boolean).join(" · ")}</span>
                 </div>
                 <div className="mt-2 flex gap-2">
                   <button onClick={() => setViewing(i)} title="View" className="grid w-8 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><Eye size={13} /></button>
