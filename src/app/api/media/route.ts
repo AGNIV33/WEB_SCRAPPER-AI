@@ -10,11 +10,14 @@ const ALLOWED = /^(image|video|audio|font)\/|^application\/(octet-stream|json)|^
 /**
  * GET /api/media?url=...  Downloads one media file from a public website for the user
  * (avoids the browser's CORS block so files can go into a ZIP). Private/local addresses are blocked.
+ * With &info=1 it only answers { size, type } (file size for the media viewer).
  */
 export async function GET(req: Request) {
   const limited = await rateLimit(req, "media");
   if (limited) return limited;
-  const url = new URL(req.url).searchParams.get("url") || "";
+  const q = new URL(req.url).searchParams;
+  const url = q.get("url") || "";
+  const info = q.get("info") === "1"; // only report { size, type } (for the media viewer's info panel)
   if (!/^https?:\/\//i.test(url)) return Response.json({ error: "Invalid URL" }, { status: 400 });
   try {
     const { res } = await safeFetch(url, { timeoutMs: 15000, headers: { accept: "image/*,video/*,audio/*,*/*;q=0.5" } });
@@ -22,6 +25,7 @@ export async function GET(req: Request) {
     const type = (res.headers.get("content-type") || "application/octet-stream").split(";")[0].trim();
     if (!ALLOWED.test(type)) return Response.json({ error: `Not a media file (${type})` }, { status: 415 });
     const len = Number(res.headers.get("content-length") || 0);
+    if (info && len) { res.body?.cancel().catch(() => {}); return Response.json({ size: len, type }); }
     if (len > MAX_BYTES) { res.body?.cancel().catch(() => {}); return Response.json({ error: "too-large", size: len }, { status: 413 }); }
 
     // Read with a hard size cap (content-length can be missing or wrong)
@@ -32,9 +36,10 @@ export async function GET(req: Request) {
       const { done, value } = await reader.read();
       if (done) break;
       total += value.length;
-      if (total > MAX_BYTES) { reader.cancel().catch(() => {}); return Response.json({ error: "too-large", size: total }, { status: 413 }); }
+      if (total > MAX_BYTES) { reader.cancel().catch(() => {}); return info ? Response.json({ size: total, type, more: true }) : Response.json({ error: "too-large", size: total }, { status: 413 }); }
       chunks.push(value);
     }
+    if (info) return Response.json({ size: total, type });
     const body = new Uint8Array(total);
     let o = 0;
     for (const c of chunks) { body.set(c, o); o += c.length; }
