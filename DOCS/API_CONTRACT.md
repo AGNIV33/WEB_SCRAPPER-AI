@@ -84,6 +84,22 @@ Severity: `high | medium | low | info`.
 
 ---
 
+## POST /api/chat
+**Request (chat)** `{ "mode": "chat", "facts": { …reportFacts() }, "messages": [{ "role": "user", "content": "What should I fix first?" }] }` (last 8 turns, 1500 chars each)
+
+**Request (compare)** `{ "mode": "compare", "names": ["a.com", "b.com"], "facts": { … }, "factsB": { … } }`
+
+**Response** `{ "answer": "markdown text" }` or `{ "error": "…" }`. Needs sign-in; counts toward the AI daily cap.
+
+---
+
+## POST /api/a11yfix
+**Request** `{ "issues": [{ "id": "color-contrast", "help": "…", "description": "…", "html": ["<a …>"], "why": ["Element has insufficient color contrast of 2.1 …"] }] }` (max 12)
+
+**Response** `{ "fixes": { "color-contrast": { "fix": "simple explanation", "code": "corrected HTML or CSS" } } }` or `{ "error": "…" }`.
+
+---
+
 ## GET /api/media?url=...
 Downloads one public media file (image/video/audio/font) so the browser can put it in a ZIP. Blocks private addresses, max 4 MB (Vercel response limit). Errors: `413 {error:"too-large"}`, `415` not media, `502` site error, `429` rate limit (600/hour per IP).
 

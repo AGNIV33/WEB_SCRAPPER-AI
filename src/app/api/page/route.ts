@@ -139,13 +139,13 @@ export async function POST(req: Request) {
     } : null;
 
     // Accessibility audit with axe-core (WCAG 2 A/AA rules), max ~15 s
-    let a11y: { violations: { id: string; impact: string | null; help: string; description: string; helpUrl: string; count: number; targets: string[] }[]; passes: number } | null = null;
+    let a11y: { violations: { id: string; impact: string | null; help: string; description: string; helpUrl: string; count: number; targets: string[]; html?: string[]; why?: string[] }[]; passes: number } | null = null;
     if (!lite && left() > 22000) try {
       const axe = (await import("axe-core")).default;
       await within(page.evaluate(axe.source), 5000);
       const res = (await Promise.race([
         page.evaluate(`axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] }, resultTypes: ['violations'] }).then(r => ({
-          violations: r.violations.map(v => ({ id: v.id, impact: v.impact, help: v.help, description: v.description, helpUrl: v.helpUrl, count: v.nodes.length, targets: v.nodes.slice(0, 3).map(n => String(n.target[0]).slice(0, 120)) })),
+          violations: r.violations.map(v => ({ id: v.id, impact: v.impact, help: v.help, description: v.description, helpUrl: v.helpUrl, count: v.nodes.length, targets: v.nodes.slice(0, 3).map(n => String(n.target[0]).slice(0, 120)), html: v.nodes.slice(0, 3).map(n => String(n.html || '').slice(0, 300)), why: v.nodes.slice(0, 3).map(n => String(n.failureSummary || '').replace(/^Fix (any|all) of the following:\\s*/i, '').slice(0, 300)) })),
           passes: r.passes.length }))`),
         new Promise((r) => setTimeout(() => r(null), Math.min(15000, left() - 12000))),
       ])) as typeof a11y;

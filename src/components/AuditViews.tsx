@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Gauge, Accessibility, ExternalLink, ChevronDown, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import { Gauge, Accessibility, ExternalLink, ChevronDown, CheckCircle2, AlertTriangle, XCircle, Wand2, Loader2 } from "lucide-react";
+import { IMPACTS, mergeA11y, type A11yFix } from "@/lib/a11y";
+import { askApi } from "@/lib/aiClient";
+import { CopyBtn } from "@/components/InsightViews";
 import type { PageResult } from "@/lib/report";
 
 const card = "glass-panel min-w-0 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_4px_24px_-8px_rgba(99,102,241,0.15)] dark:border-white/10 dark:bg-[#16162a]";
@@ -72,20 +75,22 @@ export function SpeedView({ pages }: { pages: PageResult[] }) {
 /* ---------------- Accessibility (axe-core) ---------------- */
 const impactTone: Record<string, string> = { critical: tone.poor, serious: tone.poor, moderate: tone["needs-improvement"], minor: tone["n/a"] };
 
-export function A11yView({ pages }: { pages: PageResult[] }) {
-  const ok = pages.filter((p) => p.a11y);
+export function A11yView({ pages, canFix }: { pages: PageResult[]; canFix?: boolean }) {
+  const merged = mergeA11y(pages);
   const [open, setOpen] = useState<string | null>(null);
-  if (!ok.length) return <div className={`${card} text-sm ${muted}`}>No accessibility data. Run a new analysis (older scans don&apos;t have it).</div>;
-  // merge issues across pages
-  const map = new Map<string, { id: string; impact: string | null; help: string; description: string; helpUrl: string; count: number; pages: { url: string; targets: string[] }[] }>();
-  ok.forEach((p) => p.a11y!.violations.forEach((v) => {
-    const e = map.get(v.id) || { ...v, count: 0, pages: [] };
-    e.count += v.count; e.pages.push({ url: p.url, targets: v.targets }); map.set(v.id, e);
-  }));
-  const order = ["critical", "serious", "moderate", "minor"];
-  const issues = [...map.values()].sort((a, b) => order.indexOf(a.impact || "minor") - order.indexOf(b.impact || "minor") || b.count - a.count);
-  const by = (i: string) => issues.filter((x) => x.impact === i).length;
-  const score = Math.max(0, 100 - by("critical") * 15 - by("serious") * 8 - by("moderate") * 4 - by("minor") * 1);
+  const [fixes, setFixes] = useState<Record<string, A11yFix> | null>(null);
+  const [fixing, setFixing] = useState(false);
+  const [fixErr, setFixErr] = useState<string | null>(null);
+  if (!merged) return <div className={`${card} text-sm ${muted}`}>No accessibility data. Run a new analysis (older scans don&apos;t have it).</div>;
+  const { issues, score, by } = merged;
+  const order = IMPACTS;
+  const getFixes = async () => {
+    setFixing(true); setFixErr(null);
+    try {
+      const r = await askApi<{ fixes: Record<string, A11yFix> }>("/api/a11yfix", { issues: issues.slice(0, 12).map((v) => ({ id: v.id, help: v.help, description: v.description, html: v.pages.flatMap((p) => p.html || []).slice(0, 2), why: v.pages.flatMap((p) => p.why || []).slice(0, 2) })) });
+      setFixes(r.fixes); if (issues[0]) setOpen(issues[0].id);
+    } catch (e) { setFixErr((e as Error).message); } finally { setFixing(false); }
+  };
   return (
     <div className="grid gap-5">
       <p className={`text-sm ${muted}`}>Automatic WCAG 2.1 A/AA checks with axe-core (the engine used by Lighthouse). Automatic tools catch about a third of issues; keyboard and screen-reader testing is still worth doing.</p>
@@ -94,7 +99,12 @@ export function A11yView({ pages }: { pages: PageResult[] }) {
         {order.map((i) => <div key={i} data-anim="card" className={card}><div className={`text-xs capitalize ${muted}`}>{i}</div><div className="text-3xl font-bold">{by(i)}</div></div>)}
       </div>
       <section data-anim="card" className={card}>
-        <h3 className="mb-3 flex items-center gap-2 font-semibold"><Accessibility size={18} className="text-indigo-500" /> Issues ({issues.length})</h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 font-semibold"><Accessibility size={18} className="text-indigo-500" /> Issues ({issues.length})</h3>
+          {canFix && issues.length > 0 && <button onClick={getFixes} disabled={fixing} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-600 disabled:opacity-60">{fixing ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}{fixing ? "Writing fixes…" : fixes ? "Write fixes again" : "Get fix code with AI"}</button>}
+        </div>
+        {fixErr && <p className="mb-2 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/15 dark:text-amber-200"><AlertTriangle size={14} /> {fixErr}</p>}
+        {fixes && <p className="mb-2 text-xs text-emerald-600 dark:text-emerald-400">AI fixes are ready. Open an issue to see its fix (marked with a wand).</p>}
         {!issues.length && <p className="flex items-center gap-2 text-sm text-emerald-600"><CheckCircle2 size={16} /> No automatic issues found.</p>}
         <ul className="divide-y divide-slate-100 dark:divide-white/5">
           {issues.map((v) => (
@@ -105,6 +115,7 @@ export function A11yView({ pages }: { pages: PageResult[] }) {
                   <div className="text-sm font-medium">{v.help}</div>
                   <div className={`text-xs ${muted}`}>{v.count} element(s) on {v.pages.length} page(s)</div>
                 </div>
+                {fixes?.[v.id] && <Wand2 size={15} className="mt-1 shrink-0 text-indigo-500" aria-label="AI fix ready" />}
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${impactTone[v.impact || "minor"]}`}>{v.impact || "minor"}</span>
                 <ChevronDown size={16} className={`mt-1 shrink-0 text-slate-400 transition ${open === v.id ? "rotate-180" : ""}`} />
               </button>
@@ -112,6 +123,15 @@ export function A11yView({ pages }: { pages: PageResult[] }) {
                 <div className={`ml-8 mt-2 space-y-2 text-xs ${muted}`}>
                   <p>{v.description}</p>
                   {v.pages.map((p) => <div key={p.url}><b className="text-slate-700 dark:text-slate-200">{pathOf(p.url)}</b>{p.targets.map((t) => <code key={t} className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 dark:bg-white/10">{t}</code>)}</div>)}
+                  {v.pages.flatMap((p) => p.why || []).filter(Boolean).slice(0, 1).map((w) => <p key={w} className="whitespace-pre-line rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/5"><b className="text-slate-700 dark:text-slate-200">Why it fails: </b>{w}</p>)}
+                  {v.pages.flatMap((p) => p.html || []).filter(Boolean).slice(0, 1).map((h) => <div key={h}><div className="mb-1 font-semibold text-slate-700 dark:text-slate-200">Element now</div><pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-slate-900 p-3 font-mono text-slate-100">{h}</pre></div>)}
+                  {fixes?.[v.id] && (
+                    <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-400/20 dark:bg-indigo-500/10">
+                      <div className="mb-1 flex items-center justify-between gap-2"><span className="flex items-center gap-1.5 font-semibold text-indigo-700 dark:text-indigo-300"><Wand2 size={13} /> AI fix</span>{fixes[v.id].code && <CopyBtn text={fixes[v.id].code} />}</div>
+                      <p className="mb-2 text-slate-700 dark:text-slate-200">{fixes[v.id].fix}</p>
+                      {fixes[v.id].code && <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-slate-900 p-3 font-mono text-slate-100">{fixes[v.id].code}</pre>}
+                    </div>
+                  )}
                   <a href={v.helpUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:underline dark:text-indigo-300">How to fix <ExternalLink size={12} /></a>
                 </div>
               )}

@@ -41,7 +41,7 @@ function Status({ busy, data, what }: { busy: boolean; data?: { error?: string; 
   return <div className={`${card} flex items-start gap-3 text-sm ${muted}`}><HelpCircle size={18} className="mt-0.5 shrink-0 text-indigo-500" /><span>{data.note}</span></div>;
 }
 
-function CopyBtn({ text }: { text: string }) {
+export function CopyBtn({ text }: { text: string }) {
   const [ok, setOk] = useState(false);
   return (
     <button onClick={() => navigator.clipboard.writeText(text).then(() => { setOk(true); setTimeout(() => setOk(false), 1500); })}

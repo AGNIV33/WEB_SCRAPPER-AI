@@ -25,6 +25,8 @@ export const RULES = {
   trust: { limit: 30, windowSec: 3600 },
   seofix: { limit: 15, windowSec: 3600 }, // uses NVIDIA AI
   competitors: { limit: 10, windowSec: 3600 }, // uses Gemini free quota
+  chat: { limit: 40, windowSec: 3600 }, // chat with report + compare verdict (NVIDIA AI)
+  a11yfix: { limit: 15, windowSec: 3600 }, // accessibility fix code (NVIDIA AI)
 } satisfies Record<string, Rule>;
 
 /** Whole-app daily cap on AI calls (all visitors together), to protect the NVIDIA free tier. */

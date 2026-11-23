@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, MessageSquare, ShieldCheck, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown, BadgeCheck, Wrench, Users, TrendingUp,
+  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, MessageSquare, ShieldCheck, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown, BadgeCheck, Wrench, Users, TrendingUp, MessageCircleQuestion,
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
@@ -69,7 +69,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 type NavItem = { id: View; label: string; icon: React.ElementType };
 /** Sidebar, grouped into collapsible categories. Items without a group title are always visible. */
 const NAV_GROUPS: { id: string; title?: string; icon?: React.ElementType; items: NavItem[] }[] = [
-  { id: "main", items: [{ id: "overview", label: "Overview", icon: LayoutDashboard }] },
+  { id: "main", items: [{ id: "overview", label: "Overview", icon: LayoutDashboard }, { id: "chat", label: "Ask AI", icon: MessageCircleQuestion }] },
   { id: "design", title: "Design", icon: Palette, items: [
     { id: "colors", label: "Colors", icon: Palette },
     { id: "fonts", label: "Fonts", icon: Type },
