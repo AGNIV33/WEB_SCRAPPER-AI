@@ -19,7 +19,13 @@ Counts pages: breadth-first HTML crawl (up to 500 URLs or about 25 s), then site
 ```json
 { "root": "https://example.com/", "pages": ["https://example.com/", "https://example.com/about"], "total": 120, "atLeast": false, "sitemapCount": 118, "maxAnalyze": 50, "seconds": 6.2 }
 ```
-`pages` is ordered main pages first. `atLeast: true` means the site may have more than `total`. The browser then asks the user how many to analyse (1 to `min(total, maxAnalyze)`).
+`pages` is ordered by smart priority (home first). `ranked` has the same pages with `{ url, score, section, why[], group?, similar? }` (`src/lib/pagePriority.ts`): `group` is a template like `/product/*`, `similar: true` = near-duplicate skipped by default (2 samples per group kept). `atLeast: true` means the site may have more than `total`. The browser then shows the page picker (1 to `maxAnalyze` pages).
+
+**Step 2 (start the scan)**
+```json
+{ "start": "<startPass>", "pages": ["https://example.com/", "https://example.com/pricing"] }
+```
+The server checks every picked page is a valid http(s) link on the same website, that there are no more than the plan allows (guests: home page only), counts the scan, and returns `{ "scanPass": "...", "pages": [...], "open": false, "max": 50 }`. The scan pass lists the picked pages (short hashes), so `/api/page` refuses any other page. `open: true` (small sites where every found page was picked) lets the browser add pages it finds while scanning, up to `max`.
 ```text
 ```
 

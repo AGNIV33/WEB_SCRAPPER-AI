@@ -42,7 +42,7 @@ src/
     layout.tsx          fonts, theme script, extension-attribute cleanup
     icon.svg            favicon
     api/
-      discover/route.ts crawl: HTML links (BFS) + sitemap.xml
+      discover/route.ts crawl: HTML links (BFS) + sitemap.xml, smart page priority (lib/pagePriority.ts)
       page/route.ts     Puppeteer: screenshot, EXTRACT_SCRIPT, passive page security, favicon
       site/route.ts     headers, TLS cert, HTTP→HTTPS, robots/sitemap/security.txt, hosting
       links/route.ts    HEAD/GET status checks (max 150, 10 workers)

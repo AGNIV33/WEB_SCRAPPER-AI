@@ -3,6 +3,7 @@
 Dates 2026-11-21 unless noted. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- **Smart page picker (Nov 23)**: after counting, the app ranks pages by importance (menu/header links, how many pages link to it, click depth, sitemap priority/lastmod; boosts pricing, about, product, features, contact, services, docs…; demotes login, cart, tag, search, pagination, query links and other-language copies). New picker with tick boxes, search, section filters, select all/none and "Top N" smart picks. Near-duplicate pages with the same layout (e.g. `/product/*`, 6+ pages) are grouped: 2 samples kept, "N similar pages skipped" can be opened to tick more. The server checks the picked pages (same site, plan limit) and the scan pass only allows those pages. No AI used.
 - **+ New button (Nov 23)**: sidebar button above Overview clears the report and returns to the start screen; asks before stopping a running scan.
 - **Chat, compare and accessibility upgrades (Nov 23)**:
   - **Ask AI** (new sidebar item under Overview, `/api/chat`): chat with the report. The browser sends a short fact sheet (`lib/reportFacts.ts`: SEO, security, speed, Google score, carbon, accessibility, trust, broken links, design, tech, competitors) and NIM answers only from it. Starter questions, clear chat, simple markdown answers (`MiniMarkdown.tsx`).

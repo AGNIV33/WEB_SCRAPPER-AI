@@ -26,7 +26,7 @@ Built with Next.js, headless Chrome, a free NVIDIA AI model and free Google APIs
 
 ### Scanning
 - **Paste and go.** A big search box sits in the centre of the start page. Pasting a link starts the scan straight away with a short animation, and the box then slides into the top bar.
-- **Count pages first.** The app finds the site's pages (links, sitemap, and a real browser for JavaScript-only sites), then asks how many to analyse, with a time estimate.
+- **Count pages first.** The app finds the site's pages (links, sitemap, and a real browser for JavaScript-only sites), then shows a **page picker**: smart priority ticks the most important pages (home, menu pages, much-linked pages, pricing/about/product/contact…; login, cart, tag and pagination pages go last), near-duplicates like 100 product pages are grouped and only 2 samples are kept, and you can search, filter by section (/blog, /products…) and tick pages yourself. Time estimate included.
 - **Live progress.** A progress bar, a "time left" countdown and a log of what is happening. You can stop a scan at any time.
 - **Automatic retries.** Pages that fail or have no screenshot are retried once.
 

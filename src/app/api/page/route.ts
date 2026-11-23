@@ -4,7 +4,7 @@ import { launchBrowser } from "@/lib/browser";
 import { EXTRACT_SCRIPT } from "@/lib/extractScript";
 import { assertPublicHost, isPublicUrl, normalizeUrl } from "@/lib/url";
 import { authConfigured, getCaller, isAdmin } from "@/lib/serverAuth";
-import { hostKey, readPass } from "@/lib/scanToken";
+import { hostKey, pageHash, readPass } from "@/lib/scanToken";
 import { checkLibrary } from "@/lib/vulnDb";
 import { fetchBestIcon, rankIcons } from "@/lib/favicon";
 
@@ -36,7 +36,8 @@ export async function POST(req: Request) {
     const strip = (u: string) => u.replace(/^(https?:\/\/)www\./, "$1").replace(/\/$/, "");
     const ok = !!p && p.k === "s" && !!target && hostKey(target.hostname) === p.h
       && (!p.u || caller?.uid === p.u)
-      && (!p.only || strip(target.toString()) === strip(p.only));
+      && (!p.only || strip(target.toString()) === strip(p.only))
+      && (!p.p || p.p.includes(pageHash(target.toString()))); // only the pages the user picked
     if (!ok && !isAdmin(caller)) return Response.json({ url, error: "This scan has expired or is not allowed. Please start the scan again." }, { status: 403 });
   }
   let browser;
