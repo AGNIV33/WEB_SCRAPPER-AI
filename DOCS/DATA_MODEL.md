@@ -29,7 +29,7 @@ Two kinds of data:
 | error | string | set when the page failed |
 
 ### SiteResult (from `/api/site`)
-`finalUrl, status, headers, checks[{name, ok, severity, detail}], ssl, hosting[], robots, hasSitemap, compression`
+`finalUrl, status, headers, checks[{name, ok, severity, detail}], ssl, hosting[], stack[{name, category, version?, how?}], robots, hasSitemap, compression`
 
 ### LinksResult (from `/api/links`)
 `checked, total, blocked, broken[{url, status, error?}]`
@@ -38,7 +38,17 @@ Two kinds of data:
 `url, pagesAnalyzed, pagesFailed, palette, typography, animations, tech, hosting, design, seoScore, seo{pages, hasSitemap, hasRobots}, security{checks, ssl, mixedContent, insecureForms, passwordOnHttp, cookies, libIssues, thirdPartyDomains, blankNoopener, score}, performance{avgLoadMs, pages, compression}, brokenLinks, linksChecked, linksBlocked`
 
 ### AiResult (from `/api/ai`)
-`ai: boolean, model?, note?, error?, suggestions[{area, priority, title, detail}], designMd, rawDesignMd?`
+`ai: boolean, model?, note?, error?, suggestions[{area, priority, title, detail}], designMd, rawDesignMd?, about?, extras?`
+
+### Extras (`AiResult.extras`, types in `src/lib/insights.ts`)
+| Field | Type | From |
+|---|---|---|
+| speed | `SpeedResult`: runs[{strategy, score, metrics, field, opportunities, bytes}], carbon{grams, rating, green, bytes, yearlyKg10k} | `/api/speed` |
+| trust | `TrustResult`: score, verdict, domain, checks[{name, ok, weight, detail}], domainInfo{created, expires, registrar, ageDays} | `/api/trust` |
+| seoFixes | `SeoFixResult`: ai, note?, fixes[{page, issue, fix, code, lang, priority, ai?}] | `/api/seofix` |
+| competitors | `CompetitorResult`: summary, competitors[{name, url, why, strengths}], sources[{title, url}], model | `/api/competitors` |
+
+Any of them can instead be `{ error }` or `{ note }`. They are saved inside `aiJson`, so history shows them again.
 
 ## 2. Firebase Firestore
 
@@ -60,6 +70,16 @@ One document per saved analysis. Large objects are stored as **JSON strings** be
 | siteJson | string | `SiteResult` |
 | pagesJson | string | `PageResult[]` without screenshots; trimmed in steps (links, then per-page extras) until the document is < 950 KB |
 
-**Security rules** (`firestore.rules`): a user can read, create and delete only under `users/{their uid}`. Updates are blocked. Everything else is closed.
+### Other collections
+| Path | What |
+|---|---|
+| `users/{uid}` | profile: displayName, country, email, plan, timeSpentSec, lastSeen |
+| `users/{uid}/meta/usage` | free plan counters (sites, scans per site); counts can only go up |
+| `events/{id}` | usage events (scan, error, login) for the admin dashboard |
+| `feedback/{id}` | Contact us messages: uid, email, type, subject, message, status (new / seen / resolved), reply |
+| `blocked/{uid}` | removed accounts |
+| `shares/{id}` | public read-only report links |
+
+**Security rules** (`firestore.rules`): users read and write only their own data; the admin email (set inside the rules) can read usage, events and feedback and manage users. Everything else is closed.
 
 When a saved analysis is reopened, screenshot areas show a "Re-crawl to see screenshots" button.

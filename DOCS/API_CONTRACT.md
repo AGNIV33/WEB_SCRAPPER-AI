@@ -1,6 +1,6 @@
 # API CONTRACT
 
-All routes are `POST`, JSON in and JSON out, under `/api`. No auth is needed to call them (they don't store anything). Types are in `src/lib/report.ts`.
+All routes are `POST` (except `/api/media` and `/api/me`), JSON in and JSON out, under `/api`. The browser sends the Firebase ID token as `Authorization: Bearer <token>` when signed in. Guests get reduced results (no AI, no extra sections) when login is set up. Types are in `src/lib/report.ts` and `src/lib/insights.ts`.
 
 Errors: routes return `{ "error": "message" }`. `/api/discover` and `/api/site` use status 400; `/api/page` returns status 200 with `error` set so one bad page doesn't stop the crawl.
 
@@ -64,7 +64,9 @@ Site-wide passive checks.
   "headers": { "content-type": "text/html" },
   "checks": [{ "name": "Strict-Transport-Security (HSTS)", "ok": false, "severity": "medium", "detail": "Missing" }],
   "ssl": { "valid": true, "issuer": "Let's Encrypt", "protocol": "TLSv1.3", "daysLeft": 61 },
-  "hosting": ["Cloudflare"], "robots": "User-agent: *", "hasSitemap": true, "securityTxt": false, "compression": "br"
+  "hosting": ["Cloudflare"],
+  "stack": [{ "name": "WordPress", "category": "CMS", "version": "6.4.2", "how": "generator tag" }],
+  "robots": "User-agent: *", "hasSitemap": true, "securityTxt": false, "compression": "br"
 }
 ```
 Severity: `high | medium | low | info`.
@@ -106,6 +108,67 @@ Max duration 120 s (main model 75 s, then fallback model 35 s, text only).
 
 ---
 
+## POST /api/speed
+**Request** `{ "url": "https://example.com/", "bytes": 1850000 }` (`bytes` = page weight we measured, used only if PageSpeed fails)
+
+**Response** (`SpeedResult`)
+```json
+{
+  "url": "https://example.com/",
+  "runs": [{ "strategy": "mobile", "score": 72,
+    "metrics": [{ "key": "largest-contentful-paint", "label": "Largest Contentful Paint", "value": "3.1 s", "score": 55 }],
+    "field": [{ "key": "LARGEST_CONTENTFUL_PAINT_MS", "label": "LCP", "value": "2.4 s", "rating": "fast" }],
+    "opportunities": [{ "title": "Reduce unused JavaScript", "saving": "Est savings of 120 KiB" }], "bytes": 1850000 }],
+  "carbon": { "grams": 0.29, "rating": "E", "green": false, "host": "example.com", "bytes": 1850000, "yearlyKg10k": 34.8 }
+}
+```
+Without a key Google's shared quota is used (often 429); `note` then suggests adding `GOOGLE_API_KEY`. Max 120 s.
+
+---
+
+## POST /api/trust
+**Request** `{ "url": "https://example.com/", "signals": { "privacy": true, "terms": true, "contact": true, "about": false, "passwordOnHttp": false } }`
+(`signals` come from the crawled pages' links.)
+
+**Response** (`TrustResult`)
+```json
+{ "score": 90, "verdict": "safe", "domain": "example.com",
+  "checks": [{ "name": "Google Safe Browsing", "ok": true, "weight": "high", "detail": "Not on Google's list of unsafe sites." }],
+  "domainInfo": { "created": "1995-08-14T04:00:00Z", "expires": "2027-08-13T04:00:00Z", "registrar": "RESERVED-IANA", "ageDays": 11424 } }
+```
+`ok: null` = could not check. Score: 100 minus 30 / 15 / 5 for each failed high / medium / low check; a Safe Browsing match caps it at 5. Verdict: `safe` ≥ 75, `caution` ≥ 45, else `risky`.
+
+---
+
+## POST /api/seofix
+**Request** `{ "pages": [{ "url", "title", "description", "h1", "h2", "canonical", "lang", "viewport", "robots", "ogTitle", "ogImage", "twitterCard", "images", "imagesNoAlt", "jsonLd", "wordCount", "text" }], "hasSitemap": false, "hasRobots": true, "logo": null }` (max 25 pages)
+
+**Response** (`SeoFixResult`)
+```json
+{ "ai": true, "fixes": [{ "page": "/", "issue": "No meta description, so Google picks random text.", "fix": "Put this AI-written description in the <head>.", "code": "<meta name=\"description\" content=\"…\">", "lang": "html", "priority": "medium", "ai": true }] }
+```
+Tags, URLs, sitemap, robots.txt and JSON-LD are built from measured data. NIM only writes title/description text (falls back to current text with a `note`).
+
+---
+
+## POST /api/competitors
+**Request** `{ "url": "https://example.com/", "title": "…", "description": "…", "headings": ["…"], "text": "home page text" }`
+
+**Response** (`CompetitorResult`)
+```json
+{ "summary": "…", "model": "gemini-flash-latest",
+  "competitors": [{ "name": "Acme", "url": "https://acme.com", "why": "…", "strengths": "…" }],
+  "sources": [{ "title": "acme.com", "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/…" }] }
+```
+Without `GEMINI_API_KEY`: `{ "note": "Add GEMINI_API_KEY …" }`. The analysed site and duplicates are removed.
+
+---
+
+## GET /api/me
+Returns `{ signedIn, admin, adminListSet, loginSetUp, reason }` for the signed-in user (no emails). Used to show the admin dashboard.
+
+---
+
 ## Firebase (browser → Firestore, not Next.js routes)
 `src/lib/history.ts`:
 | Function | Does |
@@ -114,3 +177,5 @@ Max duration 120 s (main model 75 s, then fallback model 35 s, text only).
 | `listAnalyses()` | latest 100 documents (id, host, date, scores, favicon) |
 | `loadAnalysis(id)` | full document, JSON parsed (no screenshots) |
 | `deleteAnalysis(id)` | deletes the document |
+
+Other browser → Firestore helpers: `feedback.ts` (Contact us), `admin.ts` (admin dashboard, live), `track.ts` (usage events, time spent), `share.ts` (share links), `usage.ts` (free plan counters), `profile.ts` (name + country).

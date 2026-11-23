@@ -54,7 +54,7 @@ export type PageResult = {
 export type SiteResult = {
   finalUrl: string; status: number; headers: Record<string, string>; error?: string;
   checks: { name: string; ok: boolean; severity: string; detail: string }[];
-  ssl: Record<string, unknown> | null; hosting: string[]; robots: string | null; hasSitemap: boolean; compression: string | null;
+  ssl: Record<string, unknown> | null; hosting: string[]; stack?: { name: string; category: string; version?: string | null; how?: string }[]; robots: string | null; hasSitemap: boolean; compression: string | null;
 };
 export type LinksResult = { checked: number; total: number; blocked?: number; broken: { url: string; status: number | null; error?: string }[] };
 

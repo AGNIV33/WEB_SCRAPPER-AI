@@ -8,7 +8,8 @@
 | Animation (UI) | GSAP 3.15 + `@gsap/react` |
 | Headless browser | `puppeteer-core` 25 + local Chrome (dev) / `@sparticuz/chromium` 153 (Vercel) |
 | HTML parsing | `cheerio` |
-| AI | NVIDIA NIM (OpenAI-compatible API) |
+| AI | NVIDIA NIM (OpenAI-compatible API); Google Gemini with Google Search grounding (competitors) |
+| Free data APIs | Google PageSpeed Insights, Google Safe Browsing, RDAP (domain age), Green Web Foundation + CO2.js (carbon) |
 | Auth + history | Firebase Auth (email/password) + Cloud Firestore, `firebase` 13 |
 | Hosting target | Vercel |
 
@@ -22,7 +23,12 @@ Browser (App.tsx)
   │ 4. POST /api/links {links}                → broken links
   │ 5. buildSummary() in the browser          → one site summary
   │ 6. POST /api/ai {summary, screenshot}     → suggestions + design.md
-  │ 7. (logged in) saveAnalysis() → Firestore → history
+  │    at the same time (lib/extrasClient.ts, each screen fills in when its call returns):
+  │    POST /api/speed        → Google speed score (phone + computer) + carbon per visit
+  │    POST /api/trust        → trust / scam check
+  │    POST /api/seofix       → SEO fixes with ready-to-paste code
+  │    POST /api/competitors  → competitors (Gemini + Google Search)
+  │ 7. (logged in) saveAnalysis() → Firestore → history (the four extra results are saved inside ai.extras)
   ▼
 Dashboard.tsx renders everything
 ```
@@ -42,6 +48,11 @@ src/
       links/route.ts    HEAD/GET status checks (max 150, 10 workers)
       media/route.ts    safe media file proxy (GET)
       ai/route.ts       NVIDIA NIM: suggestions JSON + design notes (vision)
+      speed/route.ts    Google PageSpeed Insights (mobile + desktop) + carbon (CO2.js, Green Web Foundation)
+      trust/route.ts    Safe Browsing, TLS cert, RDAP domain age, trust pages → score + verdict
+      seofix/route.ts   rule-based SEO fixes with code; NIM writes titles/descriptions
+      competitors/route.ts Gemini + google_search tool → competitors + sources
+      me/route.ts       is the signed-in user an admin (GET)
   components/
     App.tsx             shell: sidebar, top bar, crawl orchestration, auth, save
     Dashboard.tsx       all dashboard views + GSAP animations
@@ -51,6 +62,9 @@ src/
     SiteBackground.tsx  glass-mode background from the analysed site
     ExportMenu.tsx      export dropdown
     MediaView.tsx       media grid + downloads
+    InsightViews.tsx    tech stack (grouped), speed score + carbon, trust check, SEO fixes, competitors
+    AdminView.tsx       admin dashboard (usage, users, feedback inbox)
+    ContactView.tsx     Contact us (feedback form + status of your messages)
   lib/
     browser.ts          launches Chrome (local) or sparticuz chromium (Vercel)
     url.ts              normalizeUrl, SSRF guard (assertPublicHost), safeFetch
@@ -61,6 +75,12 @@ src/
     vulnDb.ts           hand-checked outdated-library rules
     firebase.ts         Firebase app, auth helpers (login, signup, logout, onUser); off if not configured
     history.ts          save / list / load / delete analyses
+    stack.ts            server-side tech stack rules (HTML, headers, cookies, generator tag)
+    insights.ts         types for the extra sections (speed, trust, SEO fixes, competitors)
+    extrasClient.ts     browser: runs the four extra calls in parallel, trust signals from links
+    nim.ts              shared NVIDIA NIM chat helper (main + fallback model)
+    gate.ts             shared sign-in / blocked / rate-limit / AI-budget check for the extra routes
+    cert.ts             TLS certificate reader (used by /api/site and /api/trust)
 firestore.rules         Firestore security rules (paste into Firebase console)
 DOCS/                   project documentation
 ```
@@ -81,13 +101,14 @@ DOCS/                   project documentation
 | No screenshots in history | Keeps the database small and free-tier friendly; users re-crawl to see screenshots |
 
 ## Rate limiting
-`src/lib/rateLimit.ts`, per visitor IP per hour: discover 15, page 200, site 30, links 30, ai 15. Whole app: 300 AI runs/day. Over the AI limit the app still answers with rule-based results. In-memory by default; Upstash Redis if configured.
+`src/lib/rateLimit.ts`, per visitor IP per hour: discover 15, page 200, site 30, links 30, ai 15, speed 20, trust 30, seofix 15, competitors 10. Whole app: 300 AI runs/day. Over the AI limit the app still answers with rule-based results. In-memory by default; Upstash Redis if configured.
 
 ## Security
 - `assertPublicHost` blocks localhost, private, link-local and CGNAT ranges (override: `ALLOW_PRIVATE_HOSTS=1`, local only).
 - Puppeteer aborts requests to literal private IPs.
 - No secrets in the client. The Firebase web config is public by design; data is protected by Firestore rules.
-- `NVIDIA_API_KEY` is server-only.
+- `NVIDIA_API_KEY`, `GOOGLE_API_KEY` and `GEMINI_API_KEY` are server-only.
+- The extra routes (speed, trust, seofix, competitors) need a signed-in user when login is set up, and respect blocked accounts.
 
 ## Environment variables
 | Name | Where | Required |
@@ -95,6 +116,11 @@ DOCS/                   project documentation
 | `NVIDIA_API_KEY` | server | for AI (otherwise rule-based) |
 | `NVIDIA_MODEL` | server | no (default `nvidia/nemotron-3.5-super-vl-120b-a12b`) |
 | `NVIDIA_FALLBACK_MODEL` | server | no (default `nvidia/nemotron-3.5-lightning-30b-a3b`) |
+| `GOOGLE_API_KEY` | server | for speed score + Safe Browsing (PageSpeed API + Safe Browsing API turned on) |
+| `PAGESPEED_API_KEY` / `SAFE_BROWSING_API_KEY` | server | no (separate keys instead of `GOOGLE_API_KEY`) |
+| `GEMINI_API_KEY` | server | for competitor finder |
+| `GEMINI_MODEL` | server | no (default `gemini-flash-latest`, then `gemini-2.5-flash`) |
+| `ADMIN_EMAILS` | server | no (admin accounts, verified emails only) |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | client | for login/history |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | client | for login/history |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | client | for login/history |
@@ -113,3 +139,7 @@ DOCS/                   project documentation
 | `/api/site` | 30 s |
 | `/api/links` | 60 s |
 | `/api/ai` | 120 s (main model 75 s, fallback 35 s) |
+| `/api/speed` | 120 s (PageSpeed can take 20-60 s) |
+| `/api/trust` | 30 s |
+| `/api/seofix` | 90 s |
+| `/api/competitors` | 60 s |

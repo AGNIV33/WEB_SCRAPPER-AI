@@ -21,6 +21,10 @@ export const RULES = {
   favicon: { limit: 60, windowSec: 3600 },
   ai: { limit: 15, windowSec: 3600 },
   media: { limit: 600, windowSec: 3600 }, // media downloads (one call per file)
+  speed: { limit: 20, windowSec: 3600 }, // Google PageSpeed (free quota)
+  trust: { limit: 30, windowSec: 3600 },
+  seofix: { limit: 15, windowSec: 3600 }, // uses NVIDIA AI
+  competitors: { limit: 10, windowSec: 3600 }, // uses Gemini free quota
 } satisfies Record<string, Rule>;
 
 /** Whole-app daily cap on AI calls (all visitors together), to protect the NVIDIA free tier. */
