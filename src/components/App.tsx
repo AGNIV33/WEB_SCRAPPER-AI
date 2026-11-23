@@ -124,7 +124,8 @@ export default function App() {
   const [extras, setExtras] = useState<Extras | null>(null); // speed score, trust, SEO fixes, competitors
   const [meta, setMeta] = useState<{ startedAt: Date; seconds: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<View>("overview");
+  // "/?view=contact" (used by the legal pages) opens Contact us directly
+  const [view, setView] = useState<View>(() => { try { return new URLSearchParams(location.search).get("view") === "contact" ? "contact" : "overview"; } catch { return "overview"; } });
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
@@ -476,6 +477,11 @@ export default function App() {
           <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Crafted by</div>
           <div className="font-signature text-2xl leading-tight text-indigo-600 dark:text-indigo-300">Agniv Sarkar</div>
           <div className="mt-2 text-[11px] leading-snug text-slate-400">© {new Date().getFullYear()} Agniv Sarkar.<br />All rights reserved.</div>
+          <div className="mt-2 flex flex-wrap justify-center gap-x-2 gap-y-0.5 text-[11px] text-slate-400">
+            <a href="/privacy" className="hover:text-indigo-600 hover:underline dark:hover:text-indigo-300">Privacy</a>·
+            <a href="/terms" className="hover:text-indigo-600 hover:underline dark:hover:text-indigo-300">Terms</a>·
+            <a href="/disclaimer" className="hover:text-indigo-600 hover:underline dark:hover:text-indigo-300">Disclaimer</a>
+          </div>
         </div>
         {mini && <div className="mt-3 hidden text-center lg:block" title={`Crafted by Agniv Sarkar · © ${new Date().getFullYear()} Agniv Sarkar. All rights reserved.`}>
           <div className="font-signature text-xl text-indigo-600 dark:text-indigo-300">AS</div>

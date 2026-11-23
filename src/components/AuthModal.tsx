@@ -81,6 +81,12 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
         <button disabled={busy} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 disabled:opacity-60">
           {mode === "login" ? <LogIn size={16} /> : <UserPlus size={16} />} {busy ? "Please wait…" : mode === "login" ? "Log in" : "Sign up"}
         </button>
+        <p className="mt-3 text-center text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+          By {mode === "login" ? "continuing" : "signing up"} you agree to our{" "}
+          <a href="/terms" target="_blank" rel="noopener" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400">Terms</a>,{" "}
+          <a href="/privacy" target="_blank" rel="noopener" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400">Privacy Policy</a> and{" "}
+          <a href="/disclaimer" target="_blank" rel="noopener" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400">Disclaimer</a>.
+        </p>
         <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
           {mode === "login" ? "No account yet?" : "Already have an account?"}{" "}
           <button type="button" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMsg(null); }} className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
