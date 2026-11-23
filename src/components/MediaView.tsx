@@ -1,9 +1,10 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image as ImageIcon, Film, Music, Shapes, Layers, Star, Download, Eye, CheckSquare, Square, Loader2, Info, Archive, Sparkles } from "lucide-react";
-import Lightbox, { type LightboxItem } from "@/components/Lightbox";
+import Lightbox, { type Dims, type LightboxItem } from "@/components/Lightbox";
+import { idToken } from "@/lib/firebase";
 import { Package } from "lucide-react";
 import type { MediaItem, PageResult } from "@/lib/report";
 
@@ -44,6 +45,108 @@ async function getBlob(it: Item): Promise<Blob> {
   return r.blob();
 }
 
+const fmtSize = (b: number) => (b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB");
+const words = (s?: string) => (s || "").trim().split(/\s+/).filter(Boolean).length;
+
+/** Short, readable name: alt text if short, else the file name without numbers, hashes and codes. */
+function niceName(it: Item, i: number) {
+  const alt = (it.alt || "").replace(/\s+/g, " ").trim();
+  if (alt && alt.length <= 40) return alt;
+  if (alt) return alt.split(" ").slice(0, 5).join(" ") + "…";
+  if (it.url.startsWith("data:")) return `Inline ${it.type.toUpperCase()} ${i + 1}`;
+  let stem = "";
+  try { stem = decodeURIComponent(new URL(it.url).pathname.split("/").filter(Boolean).pop() || ""); } catch { /* ignore */ }
+  const parts = stem.replace(/\.[a-z0-9]{2,5}$/i, "").split(/[-_.\s+]+/)
+    // drop numbers, hashes, size codes (800x600, @2x, w640) and 1-2 letter bits
+    .filter((w) => w.length > 2 && !/^\d+$/.test(w) && !/^[a-f0-9]{8,}$/i.test(w) && !/^\d+x\d+$|^@?\dx$|^[wh]\d+$/i.test(w));
+  const name = parts.slice(0, 6).join(" ");
+  return name ? name[0].toUpperCase() + name.slice(1) : `${it.type[0].toUpperCase()}${it.type.slice(1)} ${i + 1}`;
+}
+
+type AiInfo = { name?: string; description?: string; size?: number; type?: string; note?: string; error?: string };
+const aiCache = new Map<string, AiInfo>();
+const sizeCache = new Map<string, { size?: number; type?: string }>();
+const canAi = (it: Item) => /^https?:\/\//i.test(it.url) && ["image", "background", "icon"].includes(it.type) && !/\.svg(\?|$)/i.test(it.url);
+
+/** Clean, file-system-safe download name: cached AI name, else alt text, else tidied file name (+ the real extension). */
+function niceFileName(it: Item, i: number, type?: string) {
+  const ext = fileName(it, i, type).match(/\.[a-z0-9]{2,5}$/i)?.[0] || "";
+  const base = (aiCache.get(it.url)?.name || niceName(it, i)).replace(/…$/, "").replace(/[\\/:*?"<>|#%{}^~[\]`'.,;!&$@=+]+/g, " ").trim().replace(/\s+/g, "-").slice(0, 60).replace(/-+$/, "");
+  return (base || `${it.type}-${i + 1}`) + ext.toLowerCase();
+}
+const descOf = (it: Item) => (words(it.alt) >= 3 ? it.alt!.trim() : aiCache.get(it.url)?.description || "");
+// Quotes every cell; a leading = + - @ gets a ' so spreadsheet apps never run website text as a formula
+const csvCell = (v: unknown) => `"${String(v ?? "").replace(/^[=+\-@\t\r]/, "'$&").replace(/"/g, '""')}"`;
+
+/** Right-side info panel in the media viewer: name, description, size, type, where it was found. */
+function MediaInfo({ it, i, dims, onAi }: { it: Item; i: number; dims: Dims; onAi: () => void }) {
+  const altDesc = words(it.alt) >= 3 ? it.alt!.trim() : "";
+  const [ai, setAi] = useState<AiInfo | null>(() => aiCache.get(it.url) || null);
+  const [meta, setMeta] = useState(() => sizeCache.get(it.url) || null);
+  const needAi = !altDesc && canAi(it);
+
+  // File size + type (from the crawl, else ask our server once)
+  useEffect(() => {
+    if (it.size || !/^https?:\/\//i.test(it.url) || sizeCache.has(it.url)) return;
+    let live = true;
+    const t = setTimeout(() => {
+      fetch(`/api/media?url=${encodeURIComponent(it.url)}&info=1`).then((r) => (r.ok ? r.json() : { size: 0 })).then((j: { size?: number; type?: string }) => {
+        sizeCache.set(it.url, j);
+        if (live) setMeta(j);
+      }).catch(() => { if (live) setMeta({}); });
+    }, 300);
+    return () => { live = false; clearTimeout(t); };
+  }, [it]);
+
+  // AI name + description, only when the image has no useful alt text (waits a moment so fast arrowing doesn't spend calls)
+  useEffect(() => {
+    if (!needAi || aiCache.has(it.url)) return;
+    let live = true;
+    const t = setTimeout(async () => {
+      const token = await idToken();
+      const j: AiInfo = await fetch("/api/describe", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ url: it.url, alt: it.alt, page: it.pages[0] }),
+      }).then((r) => r.json()).catch(() => ({ note: "AI description is not available right now." }));
+      if (j.name || j.description || /too big|works for|couldn't describe/i.test(j.note || "")) aiCache.set(it.url, j);
+      if (live) { setAi(j); if (j.name) onAi(); }
+    }, 700);
+    return () => { live = false; clearTimeout(t); };
+  }, [it, needAi, onAi]);
+
+  const name = ai?.name || niceName(it, i);
+  const w = dims?.w || it.w, h = dims?.h || it.h;
+  const size = it.size || ai?.size || meta?.size;
+  const mime = it.mime || ai?.type || meta?.type || "";
+  const ext = (mime.split("/")[1] || it.url.match(/\.([a-z0-9]{2,5})(\?|#|$)/i)?.[1] || it.type).replace(/^svg\+xml$/, "svg").replace(/^jpeg$/, "jpg").toUpperCase();
+  const row = (k: string, v: React.ReactNode) => v ? <div className="flex justify-between gap-3 border-b border-white/10 py-2 text-xs last:border-0"><span className="text-white/50">{k}</span><span className="min-w-0 break-words text-right font-medium">{v}</span></div> : null;
+  let pageLabel = it.pages[0] || "";
+  try { const u = new URL(pageLabel); pageLabel = u.hostname.replace(/^www\./, "") + (u.pathname === "/" ? "" : u.pathname); } catch { /* keep */ }
+
+  return (
+    <div>
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-indigo-300">Name</div>
+      <h3 className="mt-1 text-lg font-semibold leading-snug">{name}</h3>
+      <div className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-indigo-300">Description</div>
+      <p className="mt-1 text-sm leading-relaxed text-white/80">
+        {altDesc ? altDesc
+          : ai?.description ? <>{ai.description} <span className="ml-1 inline-flex items-center gap-1 rounded bg-indigo-500/20 px-1.5 py-0.5 align-middle text-[10px] text-indigo-200"><Sparkles size={10} /> AI</span></>
+          : needAi && !ai ? <span className="inline-flex items-center gap-2 text-white/60"><Loader2 size={14} className="animate-spin" /> Writing a description…</span>
+          : <span className="text-white/50">{ai?.note || ai?.error || (it.alt ? it.alt : "No description on the website.")}</span>}
+      </p>
+      <div className="mt-5 rounded-xl bg-black/20 px-3">
+        {row("Dimensions", w && h ? `${w} × ${h} px` : "")}
+        {row("File size", size ? fmtSize(size) : it.url.startsWith("data:") ? fmtSize(Math.round(it.url.length * 0.75)) : meta ? "Unknown" : "…")}
+        {row("Type", it.type === "video" || it.type === "audio" ? `${it.type[0].toUpperCase()}${it.type.slice(1)} · ${ext}` : ext)}
+        {row("File name", <span title={it.url}>{fileName(it, i)}</span>)}
+        {row("Found on", pageLabel ? <a href={it.pages[0]} target="_blank" rel="noreferrer noopener" className="text-indigo-300 hover:underline">{pageLabel}</a> : "")}
+        {it.pages.length > 1 && row("Used on", `${it.pages.length} pages`)}
+      </div>
+    </div>
+  );
+}
+
 function save(name: string, blob: Blob) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -71,6 +174,8 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
   const [note, setNote] = useState<string | null>(null);
   const [broken, setBroken] = useState<Set<string>>(new Set());
   const [viewing, setViewing] = useState<number | null>(null);
+  const [, setAiTick] = useState(0); // re-render the viewer title when an AI name arrives
+  const onAi = useCallback(() => setAiTick((n) => n + 1), []);
 
   const tiny = (it: Item) => !!(it.w && it.h && it.w < 48 && it.h < 48 && it.type !== "icon");
   const shown = items.filter((it) => (type === "all" || it.type === type) && !(hideTiny && tiny(it)));
@@ -81,7 +186,7 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
   async function downloadOne(it: Item, i: number) {
     try {
       const b = await getBlob(it);
-      save(fileName(it, i, b.type), b);
+      save(niceFileName(it, i, b.type), b);
     } catch (e) {
       if (!/^https?:\/\//i.test(it.url)) setNote("Couldn't download this file.");
       else if ((e as Error).message === "too-large") window.open(it.url, "_blank", "noopener");
@@ -94,6 +199,7 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
     const zip = new JSZip();
     const failed: Item[] = [];
     const names = new Set<string>();
+    const rows: unknown[][] = [];
     let done = 0, idx = 0;
     setBusy({ done: 0, total: list.length }); setNote(null);
     const worker = async () => {
@@ -101,15 +207,20 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
         const i = idx++, it = list[i];
         try {
           const b = await getBlob(it);
-          let name = `${folderOf(it)}/${fileName(it, i, b.type)}`;
-          for (let k = 2; names.has(name); k++) name = name.replace(/(\.\w+)?$/, `-${k}$1`);
-          names.add(name);
+          const first = `${folderOf(it)}/${niceFileName(it, i, b.type)}`;
+          let name = first;
+          for (let k = 2; names.has(name.toLowerCase()); k++) name = first.replace(/(\.\w+)?$/, `-${k}$1`);
+          names.add(name.toLowerCase());
+          rows.push([aiCache.get(it.url)?.name || niceName(it, i), name, fileName(it, i, b.type), it.w && it.h ? `${it.w}x${it.h}` : "", b.size, b.type, descOf(it), it.pages[0], it.url.startsWith("data:") ? "(inline)" : it.url]);
           zip.file(name, b);
         } catch { failed.push(it); }
         setBusy({ done: ++done, total: list.length });
       }
     };
     await Promise.all(Array.from({ length: 4 }, worker));
+    // Spreadsheet with each file's details (opens in Excel / Google Sheets)
+    const head = ["Name", "File in ZIP", "Original file name", "Dimensions", "Size (bytes)", "Type", "Description", "Found on page", "Source URL"];
+    zip.file("images-info.csv", "\uFEFF" + [head, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n"));
     if (failed.length) zip.file("NOT-INCLUDED.txt", "These files were too big (over 4 MB) or blocked by the website. Open them directly:\n\n" + failed.map((f) => f.url).join("\n"));
     save(zipName, await zip.generateAsync({ type: "blob" }));
     setBusy(null);
@@ -199,11 +310,11 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
         <Lightbox
           items={shown.map((it, i): LightboxItem => ({
             src: it.url, kind: it.type === "video" ? "video" : it.type === "audio" ? "audio" : "image",
-            title: it.url.startsWith("data:") ? `Inline ${it.type.toUpperCase()}` : fileName(it, i),
-            subtitle: [it.type, it.w && it.h ? `${it.w}×${it.h}` : "", it.pages[0]].filter(Boolean).join(" · "),
+            title: aiCache.get(it.url)?.name || niceName(it, i),
             original: it.url.startsWith("data:") ? undefined : it.url,
           }))}
-          index={viewing} onIndex={setViewing} onClose={() => setViewing(null)} onDownload={(i) => downloadOne(shown[i], i)} />
+          index={viewing} onIndex={setViewing} onClose={() => setViewing(null)} onDownload={(i) => downloadOne(shown[i], i)}
+          fit side={(dims) => <MediaInfo key={shown[viewing].url} it={shown[viewing]} i={viewing} dims={dims} onAi={onAi} />} />
       )}
     </div>
   );

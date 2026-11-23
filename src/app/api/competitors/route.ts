@@ -13,15 +13,14 @@
 import { gate } from "@/lib/gate";
 import { dailyCap } from "@/lib/rateLimit";
 import { parseJson } from "@/lib/nim";
+import { GEMINI_DAILY, GEMINI_MODELS } from "@/lib/gemini";
 import type { Competitor, CompetitorResult } from "@/lib/insights";
 
 export const maxDuration = 60;
 
 // Only free-tier models that include free Google Search grounding (Gemini 2.x Flash / Flash-Lite)
-const FREE_OK = /^gemini-2\.[05]-flash(-lite)?(-\d{3})?$/;
-const wanted = (process.env.GEMINI_MODEL || "").trim();
-const MODELS = [...new Set([FREE_OK.test(wanted) ? wanted : "gemini-2.5-flash", "gemini-2.5-flash-lite"])];
-const DAILY = Math.min(Number(process.env.GEMINI_DAILY_LIMIT) || 400, 450);
+const MODELS = GEMINI_MODELS;
+const DAILY = GEMINI_DAILY;
 
 type GemResp = {
   candidates?: { content?: { parts?: { text?: string }[] }; groundingMetadata?: { groundingChunks?: { web?: { uri?: string; title?: string } }[] } }[];

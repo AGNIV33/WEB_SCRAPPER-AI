@@ -45,7 +45,7 @@ export default function PrivacyPage() {
         <><b>Vercel</b> (hosting): runs the website; may keep standard server logs such as IP address and request time.</>,
         <><b>Google Firebase</b> (login and database): stores your account, profile, history, shares and messages.</>,
         <><b>NVIDIA NIM</b> (AI): the report data of a scanned site, and your questions in &quot;Ask AI&quot;, are sent to create suggestions, design.md and answers.</>,
-        <><b>Google Gemini API, free tier</b> (competitor finder): the scanned site&apos;s address and short summary are sent. On the free tier, Google says it may use this data to improve its products, and people may review it. Do not use this feature for anything private.</>,
+        <><b>Google Gemini API, free tier</b> (competitor finder and media image descriptions): the scanned site&apos;s address and short summary are sent, and, when you open an image that has no description in the media viewer, that public image is sent so the AI can name and describe it. On the free tier, Google says it may use this data to improve its products, and people may review it. Do not use this feature for anything private.</>,
         <><b>Google PageSpeed Insights and Google Safe Browsing</b>: the scanned site&apos;s address is sent to check speed and safety.</>,
         <><b>rdap.org and The Green Web Foundation</b>: the scanned site&apos;s domain name is sent to check domain age and green hosting.</>,
         <><b>Google Fonts</b>: your browser may load fonts from Google to show a scanned site&apos;s fonts, which shares your IP address with Google.</>,
