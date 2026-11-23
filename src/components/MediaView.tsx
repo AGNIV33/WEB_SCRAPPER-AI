@@ -83,7 +83,8 @@ export default function MediaView({ pages, host }: { pages: PageResult[]; host: 
       const b = await getBlob(it);
       save(fileName(it, i, b.type), b);
     } catch (e) {
-      if ((e as Error).message === "too-large") window.open(it.url, "_blank", "noopener");
+      if (!/^https?:\/\//i.test(it.url)) setNote("Couldn't download this file.");
+      else if ((e as Error).message === "too-large") window.open(it.url, "_blank", "noopener");
       else { setNote(`Couldn't download: ${(e as Error).message}. Opening the original instead.`); window.open(it.url, "_blank", "noopener"); }
     }
   }

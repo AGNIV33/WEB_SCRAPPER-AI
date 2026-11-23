@@ -17,7 +17,7 @@ import HistoryView from "@/components/HistoryView";
 import { auth, authEnabled, flags, idToken, logout as fbLogout, onUser, refreshVerified, sendVerifyEmail, type User } from "@/lib/firebase";
 import Greeting from "@/components/Greeting";
 import Tour from "@/components/Tour";
-import { getUsage, recordScan, type Usage } from "@/lib/usage";
+import { getUsage, type Usage } from "@/lib/usage";
 import { LockedView, PricingView } from "@/components/PlanViews";
 import CompareView from "@/components/CompareView";
 import ChangesView from "@/components/ChangesView";
@@ -39,7 +39,7 @@ import type { Extras } from "@/lib/insights";
 type View = DashView | "history" | "settings" | "pricing" | "compare" | "changes" | "admin" | "contact";
 
 type Phase = "idle" | "discover" | "choose" | "pages" | "links" | "ai" | "done";
-type Discovery = { root: string; pages: string[]; total: number; atLeast: boolean; sitemapCount: number; maxAnalyze: number; guest?: boolean };
+type Discovery = { root: string; pages: string[]; total: number; atLeast: boolean; sitemapCount: number; maxAnalyze: number; guest?: boolean; startPass?: string };
 /** Views a guest (not signed in) may open; everything else shows a lock. */
 const GUEST_VIEWS: View[] = ["overview", "colors", "fonts", "animations", "tech", "settings", "pricing", "contact"];
 
@@ -284,6 +284,9 @@ export default function App() {
       if (!chosen) { setPhase("idle"); setLog([]); finishNew(); return; }
       setLimit(chosen);
       const limitN = chosen;
+      // Server checks the plan limits again, counts this scan and gives a pass for the page scans
+      const { scanPass } = await post<{ scanPass: string }>("/api/discover", { start: disc.startPass });
+      if (user) getUsage().then(setUsage).catch(() => {});
       const sitePromise = post<SiteResult>("/api/site", { url: disc.root }).catch((e) => ({ error: e.message }) as SiteResult);
 
       // 3) Scan pages (2 at a time), with live time-left estimate
@@ -296,7 +299,7 @@ export default function App() {
       const rootHost = new URL(disc.root).hostname.replace(/^www\./, "");
       const order = (a: PageResult, b: PageResult) => queue.indexOf(a.url) - queue.indexOf(b.url);
       // Always keep the URL we asked for, so a failed page still shows which page it was
-      const scanOne = (u: string, lite = false) => post<PageResult>("/api/page", { url: u, mobile: u === disc.root, lite }).then((r) => ({ ...r, url: r.url || u })).catch((e): PageResult => ({ url: u, error: e.message || "Could not scan this page" }));
+      const scanOne = (u: string, lite = false) => post<PageResult>("/api/page", { url: u, mobile: u === disc.root, lite, pass: scanPass }).then((r) => ({ ...r, url: r.url || u })).catch((e): PageResult => ({ url: u, error: e.message || "Could not scan this page" }));
       let idx = 0;
       const worker = async () => {
         while (idx < queue.length && !stopRef.current) {
@@ -374,7 +377,6 @@ export default function App() {
       if (aiRes.error) notify.push({ kind: "warning", title: "AI suggestions were skipped", body: aiRes.error, view: "suggestions" });
       // Save to history when logged in
       if (user) {
-        recordScan(disc.root).then(() => getUsage().then(setUsage)).catch(() => {});
         setSaveState("saving");
         saveAnalysis({ pages: results, site: siteRes.error ? null : siteRes, summary: s, ai: aiToSave, seconds, rootUrl: disc.root })
           .then(() => { setSaveState("saved"); setHistoryKey((k) => k + 1); notify.push({ kind: "info", title: "Saved to your history", body: host, view: "history" }); })

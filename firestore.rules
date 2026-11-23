@@ -14,6 +14,7 @@ rules_version = '2';
 // - feedback/{id}:          messages from the Contact us page. Owner reads their own; only the admin changes them.
 // - blocked/{uid}:          accounts removed by the admin.
 // - shares/{id}:            public read-only report snapshots; only the owner (or admin) can delete them.
+//                           Anyone with the link can read one, but nobody can list all shares.
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
@@ -23,21 +24,33 @@ service cloud.firestore {
         && request.auth.token.email in ['ADMIN_EMAIL_HERE'];
     }
 
+    // Free-plan counters: per scan, only the website named in 'last' goes up by 1, total goes up by 1.
+    function oneScanMore(before, after) {
+      return after.last is string
+        && after.sites.diff(before.sites).affectedKeys() == [after.last].toSet()
+        && after.sites[after.last] == before.sites.get(after.last, 0) + 1
+        && after.uniqueCount == before.uniqueCount + (after.last in before.sites ? 0 : 1);
+    }
+    function profileOk(d) {
+      return d.get('displayName', '') is string && d.get('displayName', '').size() <= 100
+        && d.get('photoURL', '') is string && d.get('photoURL', '').size() <= 1000
+        && d.get('country', '') is string && d.get('country', '').size() <= 60
+        && d.get('email', '') in ['', request.auth.token.email];
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId)
                     && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt', 'lastSeen', 'logins', 'timeSpentSec', 'country'])
                     && request.resource.data.get('logins', 0) <= 1
                     && request.resource.data.get('timeSpentSec', 0) <= 120
-                    && request.resource.data.get('country', '').size() <= 60
-                    && request.resource.data.get('email', '') in ['', request.auth.token.email];
+                    && profileOk(request.resource.data);
       allow update: if (isOwner(userId)
                     && request.resource.data.keys().hasOnly(['email', 'displayName', 'photoURL', 'createdAt', 'lastSeen', 'logins', 'timeSpentSec', 'country'])
                     && request.resource.data.get('logins', 0) - resource.data.get('logins', 0) in [0, 1]
                     && request.resource.data.get('timeSpentSec', 0) - resource.data.get('timeSpentSec', 0) >= 0
                     && request.resource.data.get('timeSpentSec', 0) - resource.data.get('timeSpentSec', 0) <= 120
-                    && request.resource.data.get('country', '').size() <= 60
-                    && request.resource.data.get('email', '') in ['', request.auth.token.email])
+                    && profileOk(request.resource.data))
                     || isAdmin();
       allow delete: if isAdmin();
     }
@@ -47,6 +60,7 @@ service cloud.firestore {
       allow delete: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId)
                     && request.resource.data.keys().hasAll(['url', 'host', 'created_at', 'summaryJson', 'pagesJson'])
+                    && request.resource.data.keys().hasOnly(['url', 'host', 'created_at', 'duration_s', 'pages_count', 'security_score', 'seo_score', 'favicon', 'summaryJson', 'aiJson', 'siteJson', 'pagesJson'])
                     && request.resource.data.created_at == request.time;
       allow update: if false;
     }
@@ -54,13 +68,15 @@ service cloud.firestore {
     match /users/{userId}/meta/usage {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId)
-                    && !('plan' in request.resource.data)
-                    && request.resource.data.uniqueCount <= 1 && request.resource.data.total <= 1;
+                    && request.resource.data.keys().hasOnly(['sites', 'uniqueCount', 'total', 'last'])
+                    && request.resource.data.total == 1 && request.resource.data.uniqueCount == 1
+                    && request.resource.data.last is string
+                    && request.resource.data.sites.keys().hasOnly([request.resource.data.last])
+                    && request.resource.data.sites[request.resource.data.last] == 1;
       allow update: if isOwner(userId)
-                    && !('plan' in request.resource.data.diff(resource.data).affectedKeys())
-                    && request.resource.data.uniqueCount >= resource.data.uniqueCount
-                    && request.resource.data.total == resource.data.total + 1
-                    && request.resource.data.sites.keys().hasAll(resource.data.sites.keys());
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sites', 'uniqueCount', 'total', 'last'])
+                    && request.resource.data.total == resource.data.get('total', 0) + 1
+                    && oneScanMore(resource.data, request.resource.data);
       allow create, update, delete: if isAdmin();
     }
 
@@ -76,13 +92,18 @@ service cloud.firestore {
                     && request.resource.data.at == request.time
                     && request.resource.data.type in ['scan', 'error']
                     && request.resource.data.keys().hasOnly(['uid', 'type', 'at', 'host', 'pagesOk', 'pagesFailed', 'lite', 'seconds', 'apiCalls', 'ai', 'status', 'where', 'message'])
-                    && request.resource.data.get('message', '').size() <= 300;
+                    && request.resource.data.get('message', '').size() <= 300
+                    && request.resource.data.get('host', '').size() <= 255
+                    && request.resource.data.get('where', '').size() <= 60;
     }
 
     match /feedback/{feedbackId} {
       allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
       allow create: if signedIn()
                     && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.get('email', '') in ['', request.auth.token.email]
+                    && request.resource.data.get('name', '').size() <= 100
+                    && request.resource.data.get('ua', '').size() <= 400
                     && request.resource.data.status == 'new'
                     && request.resource.data.createdAt == request.time
                     && request.resource.data.type in ['feedback', 'issue', 'idea']
@@ -98,9 +119,11 @@ service cloud.firestore {
     }
 
     match /shares/{shareId} {
-      allow read: if true;
+      allow get: if true;      // open one shared link
+      allow list: if isAdmin() || (signedIn() && resource.data.ownerUid == request.auth.uid); // own links only
       allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid
-                    && request.resource.data.created_at == request.time;
+                    && request.resource.data.created_at == request.time
+                    && request.resource.data.keys().hasOnly(['ownerUid', 'created_at', 'host', 'url', 'analyzedAt', 'seconds', 'favicon', 'summaryJson', 'aiJson', 'siteJson', 'pagesJson']);
       allow delete: if signedIn() && (resource.data.ownerUid == request.auth.uid || isAdmin());
       allow update: if false;
     }

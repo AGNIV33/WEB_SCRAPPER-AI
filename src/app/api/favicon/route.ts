@@ -1,5 +1,5 @@
 import { rateLimit } from "@/lib/rateLimit";
-import { assertPublicHost, normalizeUrl, safeFetch } from "@/lib/url";
+import { assertPublicHost, normalizeUrl, readText, safeFetch } from "@/lib/url";
 import { fetchBestIcon, parseIconLinks, rankIcons } from "@/lib/favicon";
 
 export const maxDuration = 20;
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     try {
       const { res, finalUrl } = await safeFetch(u.toString(), { timeoutMs: 7000 });
       base = finalUrl;
-      links = parseIconLinks(await res.text(), finalUrl);
+      links = parseIconLinks(await readText(res, 400_000), finalUrl);
     } catch { /* fall back to the standard icon locations */ }
     return Response.json({ icon: await fetchBestIcon(rankIcons(links, base)) });
   } catch {
