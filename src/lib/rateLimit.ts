@@ -65,7 +65,8 @@ async function redisHit(key: string, windowSec: number) {
 const hit = async (key: string, windowSec: number) => (await redisHit(key, windowSec)) ?? memHit(key, windowSec);
 
 export function clientIp(req: Request) {
-  return (req.headers.get("x-forwarded-for")?.split(",")[0] || req.headers.get("x-real-ip") || "unknown").trim();
+  // Vercel sets x-real-ip itself (visitors can't fake it), so it is checked first
+  return (req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown").trim();
 }
 
 const wait = (s: number) => (s >= 60 ? `${Math.ceil(s / 60)} min` : `${s} s`);

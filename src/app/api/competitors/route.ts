@@ -51,7 +51,10 @@ export async function POST(req: Request) {
   const g = await gate(req, "competitors", { needLogin: true });
   if (g.stop) return g.stop;
   if (!(await dailyCap("gemini", DAILY))) return Response.json({ note: "The free competitor search has reached today's limit. It resets tomorrow." } satisfies CompetitorResult);
-  const { url, title, description, headings = [], text = "" } = (await req.json()) as { url: string; title?: string; description?: string | null; headings?: string[]; text?: string };
+  const raw = (await req.json().catch(() => ({}))) as { url?: unknown; title?: unknown; description?: unknown; headings?: unknown; text?: unknown };
+  const str = (v: unknown, n: number) => (typeof v === "string" ? v.slice(0, n) : "");
+  const url = str(raw.url, 500), title = str(raw.title, 200), description = str(raw.description, 400), text = str(raw.text, 1200);
+  const headings = Array.isArray(raw.headings) ? raw.headings.slice(0, 12).map((h) => str(h, 150)) : [];
   const self = hostOf(url);
   if (!self) return Response.json({ error: "Bad URL" }, { status: 400 });
 

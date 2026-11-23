@@ -42,6 +42,7 @@ export async function fetchBestIcon(candidates: string[], timeoutMs = 4000): Pro
       if (src.startsWith("data:image")) return src.length < 300_000 ? src : null;
       const { res } = await safeFetch(src, { timeoutMs });
       const type = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+      if (Number(res.headers.get("content-length") || 0) > 300_000) { res.body?.cancel().catch(() => {}); continue; }
       const buf = Buffer.from(await res.arrayBuffer());
       const isImage = /^image\//.test(type) || /icon|octet-stream/.test(type) || /\.(ico|png|svg|jpe?g|webp)(\?|$)/i.test(src);
       if (res.ok && buf.length > 80 && buf.length < 300_000 && isImage && !/text\/html/.test(type)) {

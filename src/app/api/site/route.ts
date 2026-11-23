@@ -1,6 +1,6 @@
 import { rateLimit } from "@/lib/rateLimit";
 import { certInfo } from "@/lib/cert";
-import { normalizeUrl, safeFetch, assertPublicHost } from "@/lib/url";
+import { normalizeUrl, safeFetch, assertPublicHost, readText } from "@/lib/url";
 import { detectStack } from "@/lib/stack";
 
 export const maxDuration = 30;
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     const h = Object.fromEntries(res.headers.entries());
     const final = new URL(finalUrl);
     // Home page HTML for the tech stack detector (first ~1.5 MB is plenty)
-    const html = /html|text/.test(h["content-type"] || "text/html") ? await res.text().then((t) => t.slice(0, 1_500_000)).catch(() => "") : "";
+    const html = /html|text/.test(h["content-type"] || "text/html") ? await readText(res, 1_500_000).catch(() => "") : "";
     const stack = detectStack(html, h);
 
     const checks: Check[] = [];
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     }
 
     const text = async (p: string) => {
-      try { const r = await safeFetch(final.origin + p, { timeoutMs: 6000 }); return r.res.ok ? (await r.res.text()).slice(0, 4000) : null; } catch { return null; }
+      try { const r = await safeFetch(final.origin + p, { timeoutMs: 6000 }); return r.res.ok ? (await readText(r.res, 4000)).slice(0, 4000) : null; } catch { return null; }
     };
     const [robots, securityTxt, sitemapHead] = await Promise.all([text("/robots.txt"), text("/.well-known/security.txt"), text("/sitemap.xml")]);
     checks.push({ name: "security.txt", ok: !!securityTxt && /contact:/i.test(securityTxt), severity: "info", detail: securityTxt ? "Present" : "Missing (/.well-known/security.txt)" });

@@ -60,6 +60,35 @@ export async function readUsage(c: NonNullable<Caller>): Promise<Usage> {
   }
 }
 
+/**
+ * Counts one scan of a website on the server (with the user's own token; Firestore rules only let counts go up by one).
+ * Done here, not in the browser, so the free limits can't be skipped. Returns false if the write failed.
+ */
+export async function recordUsage(c: NonNullable<Caller>, site: string): Promise<boolean> {
+  const u = await readUsage(c);
+  const k = site.replace(/\./g, "_").replace(/[`\\]/g, "");
+  const isNew = !u.sites[k];
+  const path = `projects/${projectId}/databases/(default)/documents/users/${c.uid}/meta/usage`;
+  const one = { integerValue: "1" };
+  try {
+    const r = await fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:commit`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${c.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ writes: [{
+        update: { name: path, fields: { last: { stringValue: k } } }, updateMask: { fieldPaths: ["last"] },
+        updateTransforms: [
+          { fieldPath: `sites.\`${k}\``, increment: one },
+          { fieldPath: "total", increment: one },
+          { fieldPath: "uniqueCount", increment: { integerValue: isNew ? "1" : "0" } },
+        ],
+      }] }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** True if the admin removed this account (blocked/{uid} exists; owners may read their own block document). */
 export async function isBlocked(c: NonNullable<Caller>): Promise<boolean> {
   try {

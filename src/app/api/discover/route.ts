@@ -1,8 +1,9 @@
 import { rateLimit } from "@/lib/rateLimit";
 import * as cheerio from "cheerio";
 import { launchBrowser } from "@/lib/browser";
-import { authConfigured, checkQuota, getCaller, isAdmin, isBlocked, LIMITS, readUsage, siteKey } from "@/lib/serverAuth";
-import { assertPublicHost, cleanPageUrl, normalizeUrl, safeFetch, sameSite } from "@/lib/url";
+import { authConfigured, checkQuota, getCaller, isAdmin, isBlocked, LIMITS, readUsage, recordUsage, siteKey } from "@/lib/serverAuth";
+import { hostKey, makePass, readPass } from "@/lib/scanToken";
+import { cleanPageUrl, isPublicUrl, normalizeUrl, readText, safeFetch, sameSite } from "@/lib/url";
 
 export const maxDuration = 60;
 
@@ -29,7 +30,7 @@ async function sitemapUrls(origin: string, cap: number): Promise<{ urls: string[
     try {
       const { res } = await safeFetch(url, { timeoutMs: 8000 });
       if (!res.ok) return;
-      const $ = cheerio.load(await res.text(), { xml: true });
+      const $ = cheerio.load(await readText(res, 5_000_000), { xml: true });
       const nested = $("sitemap > loc").map((_, e) => $(e).text().trim()).get();
       $("url > loc").each((_, e) => { if (out.length < cap) out.push($(e).text().trim()); else truncated = true; });
       for (const n of nested) {
@@ -43,7 +44,7 @@ async function sitemapUrls(origin: string, cap: number): Promise<{ urls: string[
   const candidates = [origin + "/sitemap.xml", origin + "/sitemap_index.xml"];
   try {
     const { res } = await safeFetch(origin + "/robots.txt", { timeoutMs: 5000 });
-    if (res.ok) (await res.text()).split("\n").forEach((l) => { const m = l.match(/^\s*sitemap:\s*(\S+)/i); if (m) candidates.unshift(m[1]); });
+    if (res.ok) (await readText(res, 200_000)).split("\n").forEach((l) => { const m = l.match(/^\s*sitemap:\s*(\S+)/i); if (m) candidates.unshift(m[1]); });
   } catch { /* ignore */ }
   for (const c of [...new Set(candidates)]) { if (out.length) break; await tryOne(c); }
   return { urls: out, truncated };
@@ -55,7 +56,12 @@ async function renderedLinks(root: URL, found: Map<string, string>, deadline: nu
   try {
     const page = await browser.newPage();
     await page.setRequestInterception(true);
-    page.on("request", (r) => (["image", "media", "font"].includes(r.resourceType()) ? r.abort() : r.continue()));
+    page.on("request", async (r) => {
+      if (["image", "media", "font"].includes(r.resourceType())) return r.abort().catch(() => {});
+      // Every request the browser makes (also redirects and page scripts) must go to a public address
+      if (!(await isPublicUrl(r.url()))) return r.abort().catch(() => {});
+      r.continue().catch(() => {});
+    });
     const queue = [...found.values()];
     const visited = new Set<string>();
     while (queue.length && found.size < COUNT_CAP && Date.now() < deadline && visited.size < 8) {
@@ -63,7 +69,6 @@ async function renderedLinks(root: URL, found: Map<string, string>, deadline: nu
       if (visited.has(key(u))) continue;
       visited.add(key(u));
       try {
-        await assertPublicHost(new URL(u));
         await page.goto(u, { waitUntil: "networkidle2", timeout: Math.max(5000, Math.min(20000, deadline - Date.now())) }).catch(() => null);
         const hrefs = (await page.evaluate(`Array.from(document.querySelectorAll('a[href]')).map(a => a.href)`)) as string[];
         for (const h of hrefs) {
@@ -79,6 +84,21 @@ async function renderedLinks(root: URL, found: Map<string, string>, deadline: nu
   }
 }
 
+/** Counts the scan (signed-in users) and returns the pass that /api/page needs. */
+async function startScan(req: Request, token: unknown) {
+  const p = readPass(token);
+  if (!p || p.k !== "d") return Response.json({ error: "This scan has expired. Please start it again." }, { status: 400 });
+  const caller = authConfigured() ? await getCaller(req) : null;
+  if ((caller?.uid || "") !== p.u) return Response.json({ error: "Please sign in again and restart the scan." }, { status: 401 });
+  if (caller && !isAdmin(caller)) {
+    if (await isBlocked(caller)) return Response.json({ error: "This account has been removed. Please contact support." }, { status: 403 });
+    const q = checkQuota(await readUsage(caller), p.h);
+    if (!q.ok) return Response.json({ error: q.message, paywall: q.reason }, { status: 402 });
+    if (!(await recordUsage(caller, p.h))) return Response.json({ error: "Could not start the scan (usage could not be saved). Please try again." }, { status: 503 });
+  }
+  return Response.json({ scanPass: makePass({ k: "s", h: p.h, u: p.u, only: p.only }) });
+}
+
 /**
  * Finds the site's pages: crawls HTML links (breadth-first, so main pages come first), then adds sitemap URLs.
  * Returns the ordered list and the total found, so the user can choose how many to analyse.
@@ -88,6 +108,8 @@ export async function POST(req: Request) {
   if (limited) return limited;
   try {
     const body = await req.json();
+    // Step 2 (after the user picked how many pages): check the limits again, count the scan, give the scan pass
+    if (body.start) return await startScan(req, body.start);
     const start = normalizeUrl(body.url);
     // Accounts: guests get 1 page; signed-in free users get 10 websites x 5 scans each
     const caller = authConfigured() ? await getCaller(req) : null;
@@ -106,7 +128,7 @@ export async function POST(req: Request) {
     found.set(key(root.toString()), root.toString());
     const queue: string[] = [root.toString()];
     const visited = new Set<string>();
-    let firstHtml: string | null = res.ok ? await res.text() : null;
+    let firstHtml: string | null = res.ok ? await readText(res) : null;
 
     // Breadth-first over plain HTML (fast, no browser). Up to COUNT_CAP URLs or ~25 s.
     while (queue.length && found.size < COUNT_CAP && Date.now() - started < 25000) {
@@ -119,7 +141,7 @@ export async function POST(req: Request) {
           else {
             const r = await safeFetch(u, { timeoutMs: 8000 });
             if (!(r.res.headers.get("content-type") || "").includes("html")) return;
-            html = await r.res.text();
+            html = await readText(r.res);
           }
           const $ = cheerio.load(html);
           $("a[href]").each((_, a) => {
@@ -158,6 +180,7 @@ export async function POST(req: Request) {
       sitemapCount: sm.urls.length,
       maxAnalyze: guest ? LIMITS.guestPages : admin ? MAX_ANALYZE_ADMIN : MAX_ANALYZE,
       guest,
+      startPass: makePass({ k: "d", h: hostKey(root.hostname), u: caller?.uid || "", only: guest ? root.toString() : undefined }, 3600),
       rendered, // true when links came from headless Chrome (JavaScript-only site)
       seconds: Math.round((Date.now() - started) / 100) / 10,
     });

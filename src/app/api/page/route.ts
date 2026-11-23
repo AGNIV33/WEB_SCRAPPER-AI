@@ -2,13 +2,13 @@ import { rateLimit } from "@/lib/rateLimit";
 import type { Page, HTTPRequest, HTTPResponse } from "puppeteer-core";
 import { launchBrowser } from "@/lib/browser";
 import { EXTRACT_SCRIPT } from "@/lib/extractScript";
-import { assertPublicHost, normalizeUrl } from "@/lib/url";
+import { assertPublicHost, isPublicUrl, normalizeUrl } from "@/lib/url";
+import { authConfigured, getCaller, isAdmin } from "@/lib/serverAuth";
+import { hostKey, readPass } from "@/lib/scanToken";
 import { checkLibrary } from "@/lib/vulnDb";
 import { fetchBestIcon, rankIcons } from "@/lib/favicon";
 
 export const maxDuration = 60;
-
-const PRIVATE_LITERAL = /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?|0\.0\.0\.0)/i;
 
 /** Rejects if a browser step hangs, so one slow page can't use up the whole function time. */
 function within<T>(p: Promise<T>, ms: number): Promise<T> {
@@ -26,7 +26,19 @@ async function autoScroll(page: Page) {
 export async function POST(req: Request) {
   const limited = await rateLimit(req, "page");
   if (limited) return limited;
-  const { url, mobile, lite } = await req.json(); // lite = backup mode for very heavy pages
+  const { url, mobile, lite, pass } = await req.json(); // lite = backup mode for very heavy pages
+  // Only pages of a scan that /api/discover started (plan limits checked + counted) can be scanned
+  if (authConfigured()) {
+    const p = readPass(pass);
+    let target: URL | null = null;
+    try { target = normalizeUrl(url); } catch { /* bad url */ }
+    const caller = p?.u ? await getCaller(req) : null;
+    const strip = (u: string) => u.replace(/^(https?:\/\/)www\./, "$1").replace(/\/$/, "");
+    const ok = !!p && p.k === "s" && !!target && hostKey(target.hostname) === p.h
+      && (!p.u || caller?.uid === p.u)
+      && (!p.only || strip(target.toString()) === strip(p.only));
+    if (!ok && !isAdmin(caller)) return Response.json({ url, error: "This scan has expired or is not allowed. Please start the scan again." }, { status: 403 });
+  }
   let browser;
   let lastShot: string | null = null; // kept so even a failed page still returns its screenshot
   // Time budget: Vercel stops the function at 60 s, so slow steps are skipped when time runs short
@@ -44,14 +56,11 @@ export async function POST(req: Request) {
     const requests: { url: string; type: string }[] = [];
     await page.setRequestInterception(true);
     page.on("request", (r: HTTPRequest) => {
-      try {
-        const h = new URL(r.url()).hostname;
-        if (PRIVATE_LITERAL.test(h) && process.env.ALLOW_PRIVATE_HOSTS !== "1") return r.abort();
-      } catch { /* data: urls etc */ }
       if (requests.length < 400) requests.push({ url: r.url(), type: r.resourceType() });
       // Backup mode: skip videos and audio, the usual reason a heavy page never finishes loading
-      if (lite && r.resourceType() === "media") return r.abort();
-      r.continue();
+      if (lite && r.resourceType() === "media") { r.abort().catch(() => {}); return; }
+      // Every request the browser makes (page, redirects, scripts, images) must go to a public address
+      isPublicUrl(r.url()).then((ok) => (ok ? r.continue() : r.abort())).catch(() => {});
     });
     const failed: string[] = [];
     page.on("requestfailed", (r) => { if (failed.length < 30) failed.push(r.url()); });
