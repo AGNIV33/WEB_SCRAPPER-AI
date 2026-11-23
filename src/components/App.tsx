@@ -491,11 +491,16 @@ export default function App() {
           })}
         </nav>
         {/* Creator card + copyright */}
-        <div className={`relative mt-4 overflow-hidden rounded-2xl border border-slate-200/80 bg-white px-5 pb-3 pt-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03] ${mini ? "lg:hidden" : ""}`}>
-          <svg viewBox="0 0 240 60" preserveAspectRatio="none" className="pointer-events-none absolute right-0 top-[30%] h-11 w-2/3" aria-hidden>
-            <defs><linearGradient id="sbw" x1="0" x2="1"><stop offset="0" stopColor="#a78bfa" stopOpacity="0" /><stop offset="1" stopColor="#8b5cf6" stopOpacity=".55" /></linearGradient></defs>
-            <path d="M0 40 C 60 50, 110 55, 160 30 S 230 5, 240 8 L 240 60 L 0 60 Z" fill="url(#sbw)" opacity=".5" />
-            <path d="M0 46 C 70 56, 120 52, 170 34 S 225 18, 240 20" stroke="#8b5cf6" strokeOpacity=".5" strokeWidth="2" fill="none" />
+        <div className={`relative mt-4 overflow-hidden rounded-2xl border border-slate-200/80 bg-white px-5 pb-4 pt-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03] ${mini ? "lg:hidden" : ""}`}>
+          {/* soft glow behind the code badge + two layered waves along the bottom edge */}
+          <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-violet-400/20 blur-2xl dark:bg-violet-500/20" aria-hidden />
+          <svg viewBox="0 0 240 48" preserveAspectRatio="none" className="pointer-events-none absolute inset-x-0 bottom-0 h-14 w-full" aria-hidden>
+            <defs>
+              <linearGradient id="sbw1" x1="0" x2="1"><stop offset="0" stopColor="#c4b5fd" stopOpacity=".15" /><stop offset="1" stopColor="#8b5cf6" stopOpacity=".35" /></linearGradient>
+              <linearGradient id="sbw2" x1="0" x2="1"><stop offset="0" stopColor="#a78bfa" stopOpacity=".1" /><stop offset="1" stopColor="#7c3aed" stopOpacity=".3" /></linearGradient>
+            </defs>
+            <path d="M0 26 C 50 14, 90 34, 140 24 S 210 8, 240 14 V48 H0 Z" fill="url(#sbw1)" />
+            <path d="M0 36 C 60 26, 110 44, 160 34 S 220 24, 240 28 V48 H0 Z" fill="url(#sbw2)" />
           </svg>
           <div className="relative flex items-start justify-between gap-2">
             <div>
@@ -504,7 +509,7 @@ export default function App() {
             </div>
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300"><Code2 size={20} /></span>
           </div>
-          <div className="relative mt-8 text-xs leading-snug text-slate-500 dark:text-slate-400">© {new Date().getFullYear()} Agniv Sarkar.<br />All rights reserved.</div>
+          <div className="relative mt-4 text-xs leading-snug text-slate-500 dark:text-slate-400">© {new Date().getFullYear()} Agniv Sarkar.<br />All rights reserved.</div>
           <div className="relative mt-2 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-slate-500 dark:text-slate-400">
             <a href="/privacy" className="hover:text-violet-600 hover:underline dark:hover:text-violet-300">Privacy</a>·
             <a href="/terms" className="hover:text-violet-600 hover:underline dark:hover:text-violet-300">Terms</a>·
