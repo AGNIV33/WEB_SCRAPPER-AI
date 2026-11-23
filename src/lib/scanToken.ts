@@ -5,8 +5,15 @@
  */
 import crypto from "node:crypto";
 
-/** k: "d" = found pages (not started yet), "s" = scan started. h: website, u: user id ("" = guest), only: the one page a guest may scan. */
-export type ScanPass = { k: "d" | "s"; h: string; u: string; only?: string; e: number };
+/**
+ * k: "d" = found pages (not started yet), "s" = scan started. h: website, u: user id ("" = guest), only: the one page a guest may scan.
+ * m: most pages allowed in this scan, f: pages found (on "d" passes). p: hashes of the picked pages (on "s" passes; missing = any page of the site).
+ */
+export type ScanPass = { k: "d" | "s"; h: string; u: string; only?: string; m?: number; f?: number; p?: string[]; e: number };
+
+/** Short fingerprint of a page link (ignores www and a trailing slash), stored in scan passes. */
+export const pageHash = (u: string) =>
+  crypto.createHash("sha256").update(u.replace(/^(https?:\/\/)www\./i, "$1").replace(/\/$/, "").toLowerCase()).digest("base64url").slice(0, 11);
 
 const secret = () => {
   const s = process.env.SCAN_TOKEN_SECRET || [process.env.NVIDIA_API_KEY, process.env.GEMINI_API_KEY, process.env.GOOGLE_API_KEY, process.env.UPSTASH_REDIS_REST_TOKEN, process.env.ADMIN_EMAILS].filter(Boolean).join("|");
@@ -22,7 +29,7 @@ export function makePass(p: Omit<ScanPass, "e">, ttlSec = 2 * 3600): string {
 }
 
 export function readPass(token: unknown): ScanPass | null {
-  if (typeof token !== "string" || token.length > 2000) return null;
+  if (typeof token !== "string" || token.length > 4000) return null;
   const [data, sig] = token.split(".");
   if (!data || !sig) return null;
   const good = sign(data);

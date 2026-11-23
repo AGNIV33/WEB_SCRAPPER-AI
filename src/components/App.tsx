@@ -13,6 +13,7 @@ import { buildSummary, type LinksResult, type PageResult, type SiteResult, type 
 import Dashboard, { type AiResult, type View as DashView } from "@/components/Dashboard";
 import AuthModal from "@/components/AuthModal";
 import ChoosePages from "@/components/ChoosePages";
+import type { RankedPage } from "@/lib/pagePriority";
 import HistoryView from "@/components/HistoryView";
 import { auth, authEnabled, flags, idToken, logout as fbLogout, onUser, refreshVerified, sendVerifyEmail, type User } from "@/lib/firebase";
 import Greeting from "@/components/Greeting";
@@ -39,7 +40,7 @@ import type { Extras } from "@/lib/insights";
 type View = DashView | "history" | "settings" | "pricing" | "compare" | "changes" | "admin" | "contact";
 
 type Phase = "idle" | "discover" | "choose" | "pages" | "links" | "ai" | "done";
-type Discovery = { root: string; pages: string[]; total: number; atLeast: boolean; sitemapCount: number; maxAnalyze: number; guest?: boolean; startPass?: string };
+type Discovery = { root: string; pages: string[]; ranked?: RankedPage[]; total: number; atLeast: boolean; sitemapCount: number; maxAnalyze: number; guest?: boolean; startPass?: string };
 /** Views a guest (not signed in) may open; everything else shows a lock. */
 const GUEST_VIEWS: View[] = ["overview", "colors", "fonts", "animations", "tech", "settings", "pricing", "contact"];
 
@@ -115,7 +116,7 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [log, setLog] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number; started?: number }>({ done: 0, total: 0 });
-  const [chooser, setChooser] = useState<{ disc: Discovery; resolve: (n: number | null) => void } | null>(null);
+  const [chooser, setChooser] = useState<{ disc: Discovery; resolve: (urls: string[] | null) => void } | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [pages, setPages] = useState<PageResult[]>([]);
   const [site, setSite] = useState<SiteResult | null>(null);
@@ -287,21 +288,24 @@ export default function App() {
       // Logo lookup runs next to the page scan, so the logo shows up straight away (and even if the home page is very heavy)
       const iconPromise = post<{ icon: string | null }>("/api/favicon", { url: disc.root }).then((r) => { if (r.icon) setSiteIcon(r.icon); return r.icon; }).catch(() => null);
 
-      // 2) Ask how many to analyse (with max and time estimate)
+      // 2) Ask which pages to analyse (smart priority picks the default ticks)
       setPhase("choose");
-      const chosen = resetAfterStopRef.current ? null : await new Promise<number | null>((resolve) => setChooser({ disc, resolve }));
+      const chosen = resetAfterStopRef.current ? null : await new Promise<string[] | null>((resolve) => setChooser({ disc, resolve }));
       setChooser(null);
-      if (!chosen) { setPhase("idle"); setLog([]); finishNew(); return; }
-      setLimit(chosen);
-      const limitN = chosen;
-      // Server checks the plan limits again, counts this scan and gives a pass for the page scans
-      const { scanPass } = await post<{ scanPass: string }>("/api/discover", { start: disc.startPass });
+      if (!chosen?.length) { setPhase("idle"); setLog([]); finishNew(); return; }
+      // Server checks the picked pages (same site, plan limit), counts this scan and gives a pass for these pages
+      const start = await post<{ scanPass: string; pages?: string[]; open?: boolean; max?: number }>("/api/discover", { start: disc.startPass, pages: chosen });
+      const scanPass = start.scanPass;
+      const picked = start.pages?.length ? start.pages : chosen;
+      setLimit(picked.length);
+      // Small sites: when every found page was picked, pages found while scanning may be added up to the limit
+      const limitN = start.open ? Math.max(picked.length, Math.min(disc.total, start.max ?? disc.maxAnalyze)) : picked.length;
       if (user) getUsage().then(setUsage).catch(() => {});
       const sitePromise = post<SiteResult>("/api/site", { url: disc.root }).catch((e) => ({ error: e.message }) as SiteResult);
 
       // 3) Scan pages (2 at a time), with live time-left estimate
       setPhase("pages");
-      const queue = disc.pages.slice(0, limitN);
+      const queue = [...picked];
       const seen = new Set(disc.pages.map((u) => u.replace(/\/$/, "")));
       const results: PageResult[] = [];
       const scanStart = Date.now();
@@ -640,8 +644,9 @@ export default function App() {
       {profileOpen && user && <ProfileModal user={user} onDone={() => setProfileOpen(false)} onLogout={() => { setProfileOpen(false); fbLogout(); }} />}
       <Tour open={tourOpen && !profileOpen} onClose={closeTour} />
       {chooser && (
-        <ChoosePages host={new URL(chooser.disc.root).hostname} total={chooser.disc.total} atLeast={chooser.disc.atLeast} max={chooser.disc.maxAnalyze}
-          initial={limit} estimate={estimateSeconds} fmt={fmtDuration} onStart={(n) => chooser.resolve(n)} onCancel={() => chooser.resolve(null)} />
+        <ChoosePages host={new URL(chooser.disc.root).hostname} root={chooser.disc.root} ranked={chooser.disc.ranked ?? chooser.disc.pages.map((url) => ({ url, score: 0, section: "/", why: [] }))}
+          total={chooser.disc.total} atLeast={chooser.disc.atLeast} max={chooser.disc.maxAnalyze}
+          initial={limit} estimate={estimateSeconds} fmt={fmtDuration} onStart={(urls) => chooser.resolve(urls)} onCancel={() => chooser.resolve(null)} />
       )}
     </div>
   );
