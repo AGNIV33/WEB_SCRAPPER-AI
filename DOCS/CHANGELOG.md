@@ -3,6 +3,7 @@
 Dates 2026-11-21 unless noted. Newest first. Commit hashes in brackets.
 
 ## Unreleased
+- **+ New button (Nov 23)**: sidebar button above Overview clears the report and returns to the start screen; asks before stopping a running scan.
 - **Chat, compare and accessibility upgrades (Nov 23)**:
   - **Ask AI** (new sidebar item under Overview, `/api/chat`): chat with the report. The browser sends a short fact sheet (`lib/reportFacts.ts`: SEO, security, speed, Google score, carbon, accessibility, trust, broken links, design, tech, competitors) and NIM answers only from it. Starter questions, clear chat, simple markdown answers (`MiniMarkdown.tsx`).
   - **Compare sites**: new rows for accessibility score, Google speed (phone) and trust score (also in What changed); **AI verdict** button (winner, where each is better, what to copy).

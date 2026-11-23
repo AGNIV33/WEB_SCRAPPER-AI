@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, Palette, Type, FileText, Image as ImageIcon, Sparkles, Shield, Lightbulb, FileCode, Layers,
-  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, MessageSquare, ShieldCheck, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown, BadgeCheck, Wrench, Users, TrendingUp, MessageCircleQuestion,
+  Link2, X, Menu, History, LogIn, LogOut, CloudUpload, Check, Settings as SettingsIcon, Droplets, Film, MessageSquare, ShieldCheck, PanelLeftClose, PanelLeftOpen, Gauge, Accessibility, Braces, GitCompareArrows, Columns2, Crown, Lock, ChevronDown, BadgeCheck, Wrench, Users, TrendingUp, MessageCircleQuestion, Plus,
 } from "lucide-react";
 import SettingsView from "@/components/SettingsView";
 import SiteBackground from "@/components/SiteBackground";
@@ -240,6 +240,24 @@ export default function App() {
   }
   const say = (m: string) => setLog((l) => [...l.slice(-4), m]);
 
+  // "+ New" button: clear the current report and go back to the fresh start screen (the scan is already in history)
+  const resetAfterStopRef = useRef(false);
+  function clearReport() {
+    setPhase("idle"); setPages([]); setSite(null); setSummary(null); setAi(null); setExtras(null); setMeta(null); setLog([]); setUrl(""); setSiteIcon(null);
+    setError(null); setGuestRun(false); setSaveState("idle"); setChooser(null); setView("overview"); setMenuOpen(false);
+  }
+  // "+ New" pressed during a scan: once the scan has stopped, go to the fresh start screen
+  function finishNew() { if (resetAfterStopRef.current) { resetAfterStopRef.current = false; clearReport(); } }
+  function startNew() {
+    if (busy) {
+      // A scan is running: ask first, then stop it and reset once it has stopped
+      if (!window.confirm("A scan is still running. Stop it and start a new one?")) return;
+      stopRef.current = true; resetAfterStopRef.current = true;
+      chooser?.resolve(null); // stopped while picking how many pages
+      return;
+    }
+    clearReport();
+  }
   async function run(e?: React.FormEvent, override?: string) {
     e?.preventDefault();
     const url = (override ?? urlState).trim();
@@ -260,9 +278,9 @@ export default function App() {
 
       // 2) Ask how many to analyse (with max and time estimate)
       setPhase("choose");
-      const chosen = await new Promise<number | null>((resolve) => setChooser({ disc, resolve }));
+      const chosen = resetAfterStopRef.current ? null : await new Promise<number | null>((resolve) => setChooser({ disc, resolve }));
       setChooser(null);
-      if (!chosen) { setPhase("idle"); setLog([]); return; }
+      if (!chosen) { setPhase("idle"); setLog([]); finishNew(); return; }
       setLimit(chosen);
       const limitN = chosen;
       const sitePromise = post<SiteResult>("/api/site", { url: disc.root }).catch((e) => ({ error: e.message }) as SiteResult);
@@ -361,9 +379,11 @@ export default function App() {
           .then(() => { setSaveState("saved"); setHistoryKey((k) => k + 1); notify.push({ kind: "info", title: "Saved to your history", body: host, view: "history" }); })
           .catch((e) => { setSaveState("error"); setError(`Could not save to history: ${e.message}`); trackEvent({ type: "error", where: "save", message: e.message }); notify.push({ kind: "error", title: "Could not save to history", body: e.message }); });
       }
+      finishNew();
     } catch (err) {
       setError((err as Error).message);
       setPhase("idle");
+      if (resetAfterStopRef.current) { finishNew(); return; }
       if (err instanceof PaywallError) { setView("pricing"); notify.push({ kind: "warning", title: "Free plan limit reached", body: (err as Error).message, view: "pricing" }); }
       else {
         notify.push({ kind: "error", title: "Scan failed", body: (err as Error).message });
@@ -413,6 +433,10 @@ export default function App() {
             {mini ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
         </div>
+        <button onClick={startNew} title={mini ? "New scan" : "Start a new scan"} aria-label="New scan"
+          className={`mb-3 flex items-center gap-3 rounded-xl border border-dashed border-indigo-300 px-3 py-2 text-sm font-semibold text-indigo-600 transition hover:border-solid hover:bg-indigo-50 dark:border-white/20 dark:text-white dark:hover:bg-white/5 ${mini ? "lg:justify-center lg:px-0" : ""}`}>
+          <Plus size={18} className="shrink-0" /> <span className={mini ? "lg:hidden" : ""}>New</span>
+        </button>
         <nav data-tour="nav" className="no-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
           {navGroups.map((g) => {
             // a group is open if the user opened it, or it holds the current page
