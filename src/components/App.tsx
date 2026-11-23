@@ -127,6 +127,14 @@ export default function App() {
   // "/?view=contact" (used by the legal pages) opens Contact us directly
   const [view, setView] = useState<View>(() => { try { return new URLSearchParams(location.search).get("view") === "contact" ? "contact" : "overview"; } catch { return "overview"; } });
   const [menuOpen, setMenuOpen] = useState(false);
+  // Phone menu open: freeze the page behind it. position:fixed on body is what stops iOS Safari from scrolling it.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const y = window.scrollY, b = document.body.style;
+    const prev = { position: b.position, top: b.top, width: b.width, overflow: b.overflow };
+    Object.assign(b, { position: "fixed", top: `-${y}px`, width: "100%", overflow: "hidden" });
+    return () => { Object.assign(b, prev); window.scrollTo(0, y); };
+  }, [menuOpen]);
   /** Section picked from a start-page card: opened when the next scan starts. */
   const [heroTarget, setHeroTarget] = useState<DashView | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -442,7 +450,7 @@ export default function App() {
           className={`mb-5 flex items-center gap-4 rounded-xl bg-gradient-to-r from-violet-500 to-violet-700 px-5 py-3 text-base font-semibold text-white shadow-lg shadow-violet-500/30 transition hover:brightness-110 ${mini ? "lg:justify-center lg:px-0" : ""}`}>
           <Plus size={22} className="shrink-0" /> <span className={mini ? "lg:hidden" : ""}>New</span>
         </button>
-        <nav data-tour="nav" className="no-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
+        <nav data-tour="nav" className="no-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto overscroll-contain overflow-x-hidden">
           {navGroups.map((g) => {
             const open = !g.title || mini || openGroups.has(g.id);
             const GIcon = g.icon;
@@ -508,7 +516,7 @@ export default function App() {
           <div className="text-[10px] text-slate-400">© {new Date().getFullYear()}</div>
         </div>}
       </aside>
-      {menuOpen && <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setMenuOpen(false)} />}
+      {menuOpen && <div className="fixed inset-0 z-30 touch-none bg-black/30 lg:hidden" onClick={() => setMenuOpen(false)} />}
 
       <div className={`relative z-10 overflow-x-clip transition-[padding] duration-300 ${mini ? "lg:pl-20" : "lg:pl-72"}`}>
         {/* Top bar */}
