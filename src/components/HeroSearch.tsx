@@ -61,7 +61,7 @@ export default function HeroSearch({ url, setUrl, onStart, target, onPick }: {
   return (
     <div ref={root} className="relative mx-auto flex min-h-[calc(100vh-140px)] max-w-6xl flex-col items-center justify-center py-6 text-center sm:py-8">
       {/* soft background waves, like the mockup */}
-      <svg viewBox="0 0 1200 800" preserveAspectRatio="none" className="pointer-events-none absolute -inset-x-24 -top-10 -z-10 h-[110%] w-[calc(100%+12rem)] text-violet-400/15 dark:text-violet-500/10" aria-hidden>
+      <svg viewBox="0 0 1200 800" preserveAspectRatio="none" className="pointer-events-none fixed inset-0 -z-10 h-full w-full text-violet-400/15 dark:text-violet-500/10" aria-hidden>
         <path d="M0 0 H520 C 380 120, 300 260, 120 360 C 60 395, 20 420, 0 430 Z" fill="currentColor" />
         <path d="M1200 420 C 1080 520, 980 560, 860 640 C 800 690, 770 740, 760 800 H1200 Z" fill="currentColor" />
       </svg>

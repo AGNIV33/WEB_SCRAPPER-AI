@@ -456,7 +456,7 @@ export default function App() {
                   <>
                     {mini && <div className="mx-3 my-1.5 hidden h-px bg-slate-200 dark:bg-white/10 lg:block" />}
                     <button onClick={() => toggleGroup(g.id)} aria-expanded={open}
-                      className={`flex w-full items-center gap-4 rounded-xl px-3 py-2.5 text-[15px] font-semibold transition hover:bg-violet-50 dark:hover:bg-white/5 ${holdsCurrent ? "text-violet-700 dark:text-violet-300" : "text-[#14123a] dark:text-slate-200"} ${mini ? "lg:hidden" : ""}`}>
+                      className={`flex w-full items-center gap-4 rounded-xl px-3 py-2.5 text-[0.9375rem] font-semibold transition hover:bg-violet-50 dark:hover:bg-white/5 ${holdsCurrent ? "text-violet-700 dark:text-violet-300" : "text-[#14123a] dark:text-slate-200"} ${mini ? "lg:hidden" : ""}`}>
                       <GIcon size={20} strokeWidth={1.8} className="shrink-0" /> <span className="flex-1 text-left">{g.title}</span>
                       <ChevronRight size={18} className={`shrink-0 text-slate-500 transition-transform duration-200 ${open ? "rotate-90" : ""}`} />
                     </button>
@@ -469,7 +469,7 @@ export default function App() {
                       const active = view === id;
                       return (
                       <button key={id} data-tour={id === "settings" ? "settings" : undefined} onClick={() => { setView(id); setMenuOpen(false); }} title={mini ? label : undefined} tabIndex={open ? 0 : -1}
-                        className={`flex items-center rounded-xl transition ${sub ? "gap-3 px-3 py-2 text-sm" : "gap-4 px-3 py-2.5 text-[15px]"} ${mini ? "lg:justify-center lg:px-0" : ""} ${active ? "bg-violet-100 font-semibold text-violet-700 dark:bg-violet-500/20 dark:text-violet-200" : `${sub ? "font-medium text-slate-600 dark:text-slate-300" : "font-semibold text-[#14123a] dark:text-slate-200"} hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-white/5 dark:hover:text-white`}`}>
+                        className={`flex items-center rounded-xl transition ${sub ? "gap-3 px-3 py-2 text-sm" : "gap-4 px-3 py-2.5 text-[0.9375rem]"} ${mini ? "lg:justify-center lg:px-0" : ""} ${active ? "bg-violet-100 font-semibold text-violet-700 dark:bg-violet-500/20 dark:text-violet-200" : `${sub ? "font-medium text-slate-600 dark:text-slate-300" : "font-semibold text-[#14123a] dark:text-slate-200"} hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-white/5 dark:hover:text-white`}`}>
                         <Icon size={sub ? 17 : 20} strokeWidth={1.8} className="shrink-0" /> <span className={`flex-1 text-left ${mini ? "lg:hidden" : ""}`}>{label}</span>
                         {id === "admin" && inboxCount > 0 && <span className={`rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white ${mini ? "lg:hidden" : ""}`}>{inboxCount}</span>}
                         {isLocked(id) && <Lock size={13} className={`shrink-0 opacity-60 ${mini ? "lg:hidden" : ""}`} />}
@@ -510,7 +510,7 @@ export default function App() {
       </aside>
       {menuOpen && <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setMenuOpen(false)} />}
 
-      <div className={`relative z-10 transition-[padding] duration-300 ${mini ? "lg:pl-20" : "lg:pl-72"}`}>
+      <div className={`relative z-10 overflow-x-clip transition-[padding] duration-300 ${mini ? "lg:pl-20" : "lg:pl-72"}`}>
         {/* Top bar */}
         <header className="glass-panel sticky top-0 z-20 border-b border-slate-200/70 bg-white/95 dark:border-white/10 dark:bg-[#0d0d17]/95">
           <form ref={formRef} onSubmit={run} className="flex flex-wrap items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 md:px-8">
