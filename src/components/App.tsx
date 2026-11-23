@@ -488,10 +488,10 @@ export default function App() {
         {/* Top bar */}
         <header className="glass-panel sticky top-0 z-20 border-b border-slate-200/60 bg-white/95 dark:border-white/10 dark:bg-[#0d0d17]/95">
           <form ref={formRef} onSubmit={run} className="flex flex-wrap items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 md:px-8">
-            <button type="button" className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={22} /></button>
+            <button type="button" className="shrink-0 lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={22} /></button>
             {/* phone: logo on the first row, URL + Analyze on their own full-width second row */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <span className="flex items-center gap-2 sm:hidden"><img src="/logo-mark.svg" alt="" className="h-7 w-7" /><span className="text-sm font-bold"><span className="text-[#1e1b4b] dark:text-white">Scrapper</span> <span className="text-violet-500">AI</span></span></span>
+            <span className="flex shrink-0 items-center gap-2 sm:hidden"><img src="/logo-mark.svg" alt="" className="h-7 w-7" /><span className="hidden text-sm font-bold min-[400px]:inline"><span className="text-[#1e1b4b] dark:text-white">Scrapper</span> <span className="text-violet-500">AI</span></span></span>
             {!started && <div className="flex min-w-0 flex-1 items-center"><Greeting user={user} /></div>}
             <div className={`order-last flex w-full min-w-0 gap-2 sm:order-none sm:w-auto sm:flex-1 sm:gap-3 ${started ? "animate-[topbar-in_.5s_ease-out]" : "hidden"}`}>
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm focus-within:border-indigo-400 dark:border-white/10 dark:bg-white/5">
@@ -515,7 +515,7 @@ export default function App() {
             {authEnabled && (user ? (
               <div className="relative" data-tour="account">
                 <button type="button" onClick={() => setUserMenu((o) => !o)} aria-label="Account menu"
-                  className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 text-sm font-semibold uppercase text-white ring-2 ring-white shadow dark:ring-white/10">
+                  className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full sm:h-10 sm:w-10 bg-gradient-to-br from-indigo-400 to-violet-500 text-sm font-semibold uppercase text-white ring-2 ring-white shadow dark:ring-white/10">
                   {user.photoURL && !avatarBroken
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" onError={() => setAvatarBroken(true)} className="h-full w-full object-cover" />
