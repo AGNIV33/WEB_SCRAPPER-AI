@@ -6,12 +6,14 @@ import { adminEmails, authConfigured, getCaller, isAdmin } from "@/lib/serverAut
  * open /api/me in the browser and check "adminListSet" and "loginSetUp".
  */
 export async function GET(req: Request) {
-  const caller = await getCaller(req);
+  const why: { error?: string } = {};
+  const caller = await getCaller(req, why);
+  const sentToken = (req.headers.get("authorization") || "").startsWith("Bearer ");
   const admin = isAdmin(caller);
   const adminListSet = adminEmails().length > 0;
   const reason = admin ? "ok"
     : !authConfigured() ? "login-not-set-up"
-    : !caller ? "not-signed-in"
+    : !caller ? (sentToken ? `token-rejected (${why.error || "unknown"})` : "not-signed-in")
     : !adminListSet ? "admin-list-empty"
     : !caller.emailVerified ? "email-not-verified"
     : "email-not-in-admin-list";

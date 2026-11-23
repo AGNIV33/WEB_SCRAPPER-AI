@@ -123,6 +123,7 @@ export default function App() {
   const [profileOpen, setProfileOpen] = useState(false); // "complete your profile" (name, country, password)
   const [siteIcon, setSiteIcon] = useState<string | null>(null); // logo of the analysed website
   const [isAdmin, setIsAdmin] = useState(false); // admin account: unlimited (decided by the server)
+  const [adminIssue, setAdminIssue] = useState<string | null>(null); // why the admin check failed (setup problems only)
   const [avatarBroken, setAvatarBroken] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const closeTour = useCallback(() => { setTourOpen(false); try { if (auth?.currentUser) localStorage.setItem(`tourDone:${auth.currentUser.uid}`, "1"); } catch { /* ignore */ } }, []); // Google photo failed to load: show the initial instead
@@ -153,7 +154,7 @@ export default function App() {
       }
       had = !!u;
       if (u) getUsage().then(setUsage); else setUsage(null);
-      setIsAdmin(false);
+      setIsAdmin(false); setAdminIssue(null);
       if (u) {
         // removed accounts are signed out; everyone else gets their profile refreshed for the admin dashboard
         isAccountBlocked(u.uid).then((blocked) => {
@@ -167,7 +168,12 @@ export default function App() {
           }).catch(() => {});
         });
       }
-      if (u) idToken().then((t) => fetch("/api/me", { headers: t ? { authorization: `Bearer ${t}` } : {} })).then((r) => r.json()).then((j) => { setIsAdmin(!!j.admin); if (!j.admin) console.info("Admin check:", j.reason); }).catch(() => {});
+      if (u) idToken().then((t) => fetch("/api/me", { headers: t ? { authorization: `Bearer ${t}` } : {} })).then((r) => r.json()).then((j) => {
+        setIsAdmin(!!j.admin);
+        if (!j.admin) console.info("Admin check:", j.reason);
+        // Ordinary users ("email-not-in-admin-list") see nothing; setup problems are shown in the account menu
+        setAdminIssue(!j.admin && j.reason && j.reason !== "email-not-in-admin-list" ? j.reason : null);
+      }).catch((e) => setAdminIssue(`admin check failed: ${(e as Error).message}`));
       // Quick tour: once, for accounts created in the last 24 hours
       try {
         const isNew = Date.now() - new Date(u?.metadata.creationTime || 0).getTime() < 24 * 3600 * 1000;
@@ -485,6 +491,7 @@ export default function App() {
                         {user.displayName && <div className="truncate text-sm font-semibold">{user.displayName}</div>}
                         <div className="truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</div>
                         {isAdmin && <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"><Crown size={10} /> Admin · Unlimited</span>}
+                        {!isAdmin && adminIssue && <div className="mt-1 break-words text-[10px] text-amber-600 dark:text-amber-400">Admin check: {adminIssue}</div>}
                       </div>
                     </div>
                     <button type="button" onClick={() => { setView("history"); setUserMenu(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-white/5"><History size={16} /> My history</button>

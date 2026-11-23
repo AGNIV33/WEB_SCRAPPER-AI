@@ -5,19 +5,20 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const JWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
-const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+const projectId = (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "").replace(/["'\s]/g, "");
 
 export type Caller = { uid: string; email?: string; emailVerified?: boolean; token: string } | null;
 
 /** Returns the signed-in user, or null for guests (or if login isn't configured). */
-export async function getCaller(req: Request): Promise<Caller> {
+export async function getCaller(req: Request, why?: { error?: string }): Promise<Caller> {
   const h = req.headers.get("authorization") || "";
   const token = h.startsWith("Bearer ") ? h.slice(7) : "";
   if (!token || !projectId) return null;
   try {
     const { payload } = await jwtVerify(token, JWKS, { issuer: `https://securetoken.google.com/${projectId}`, audience: projectId });
     return payload.sub ? { uid: payload.sub, email: payload.email as string | undefined, emailVerified: payload.email_verified === true, token } : null;
-  } catch {
+  } catch (e) {
+    if (why) why.error = (e as { code?: string }).code || (e as Error).message || "token-check-failed";
     return null;
   }
 }
